@@ -1,0 +1,12 @@
+<!-- Icon 1: Pulse Shield -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Pulse Shield Icon">
+  <defs>
+    <linearGradient id="ig1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2F78D9"/>
+      <stop offset="100%" stop-color="#68B2A0"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#ig1)"/>
+  <path d="M24 68h20l9-20 14 40 12-26h25" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="92" cy="34" r="5" fill="#FFFFFF" opacity="0.9"/>
+</svg>
