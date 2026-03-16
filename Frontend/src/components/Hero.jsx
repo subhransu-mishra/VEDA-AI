@@ -18,10 +18,14 @@ const mobileHelperText = "Private support for sensitive symptoms.";
 export default function Hero({
   onOpenLogin = () => {},
   onOpenSignup = () => {},
+  onGetStarted = () => {},
   isLoggedIn = false,
+  session = null,
 }) {
   const [showMessage, setShowMessage] = useState(false);
   const [typedText, setTypedText] = useState("");
+
+  const showMobileGetStarted = isLoggedIn && session?.role === "patient";
 
   useEffect(() => {
     const revealTimer = setTimeout(() => {
@@ -107,9 +111,25 @@ export default function Hero({
               </button>
             </motion.div>
           )}
+
+          {showMobileGetStarted && (
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.95, delay: 0.22, ease: easeSmooth }}
+              className="mt-8 flex items-center justify-center lg:hidden"
+            >
+              <button
+                type="button"
+                onClick={onGetStarted}
+                className="btn-primary px-6 py-3 text-sm font-semibold"
+              >
+                Get Started
+              </button>
+            </motion.div>
+          )}
         </div>
 
-        {/* Mobile popup above avatar */}
         {showMessage && (
           <motion.div
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -131,7 +151,6 @@ export default function Hero({
           </motion.div>
         )}
 
-        {/* Review avatars + text */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -170,7 +189,6 @@ export default function Hero({
           </div>
         </motion.div>
 
-        {/* Desktop typing popup */}
         {showMessage && (
           <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.96 }}

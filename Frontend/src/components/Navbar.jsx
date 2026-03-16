@@ -1,4 +1,3 @@
-// src/components/Navbar.jsx
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -12,6 +11,7 @@ import {
   Zap,
   Star,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -50,6 +50,7 @@ export default function Navbar({
   onLogout,
   onOpenLogin,
   onOpenSignup,
+  onGetStarted,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,7 +61,9 @@ export default function Navbar({
   const isLoggedIn = Boolean(session?.email);
   const isDoctor = session?.role === "doctor";
   const isAdmin = session?.role === "admin";
+  const isPatient = session?.role === "patient";
   const doctorNeedsVerification = isDoctor && doctorVerificationStatus !== "verified";
+  const showGetStarted = isLoggedIn && isPatient;
 
   const dashboardPath = useMemo(
     () => (session?.role === "doctor" ? "/dashboard/doctor" : "/dashboard/patient"),
@@ -119,12 +122,15 @@ export default function Navbar({
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="fixed inset-x-0 top-0 z-[999] px-6 py-6 pointer-events-none"
+        className="fixed inset-x-0 top-0 z-[999] px-4 py-5 sm:px-6 sm:py-6 pointer-events-none"
       >
         <div className="mx-auto max-w-7xl grid grid-cols-2 lg:grid-cols-3 items-center">
           <div className="flex justify-start">
-            <button onClick={() => handleSectionNav("home")} className="pointer-events-auto flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0a1128] text-white shadow-lg">
+            <button
+              onClick={() => handleSectionNav("home")}
+              className="pointer-events-auto flex items-center gap-3"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#0a1128,#1b2d67)] text-white shadow-lg">
                 <span className="text-lg font-serif italic">V</span>
               </div>
               <span className="text-lg font-bold tracking-tighter text-slate-900">
@@ -184,6 +190,16 @@ export default function Navbar({
                     </span>
                   )}
 
+                  {showGetStarted && (
+                    <button
+                      onClick={onGetStarted}
+                      className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700"
+                    >
+                      <Sparkles size={12} />
+                      Get Started
+                    </button>
+                  )}
+
                   <button
                     onClick={goPrimaryAuthRoute}
                     className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600"
@@ -225,7 +241,7 @@ export default function Navbar({
               initial="closed"
               animate="open"
               exit="closed"
-              className="fixed right-0 top-0 z-[1001] h-full w-[80%] max-w-[360px] bg-white lg:hidden flex flex-col"
+              className="fixed right-0 top-0 z-[1001] h-full w-[82%] max-w-[360px] bg-white lg:hidden flex flex-col"
             >
               <div className="flex items-center justify-between p-8 border-b border-slate-50">
                 <span className="text-xs font-bold tracking-[0.3em] uppercase text-slate-400">Navigation</span>
@@ -293,6 +309,19 @@ export default function Navbar({
                         <ShieldCheck size={14} />
                         admin
                       </div>
+                    )}
+
+                    {showGetStarted && (
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onGetStarted?.();
+                        }}
+                        className="w-full bg-emerald-50 text-emerald-700 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        <Sparkles size={14} />
+                        Get Started
+                      </button>
                     )}
 
                     <button

@@ -26,6 +26,7 @@ import PatientSignup from "./pages/PatientSignup";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import PatientDashboard from "./pages/PatientDashboard";
 import AdminVerificationPanel from "./pages/AdminVerificationPanel";
+import PatientAnalysisPage from "./pages/PatientAnalysisPage";
 
 import DoctorSignup from "./components/DoctorSignup";
 import DoctorVerification from "./components/DoctorVerification";
@@ -117,7 +118,13 @@ function ProtectedAdmin({ session, children }) {
   return children;
 }
 
-function LandingPage({ isLoggedIn, session, onOpenLogin, onOpenSignup }) {
+function LandingPage({
+  isLoggedIn,
+  session,
+  onOpenLogin,
+  onOpenSignup,
+  onGetStarted,
+}) {
   return (
     <>
       <section id="home">
@@ -126,6 +133,7 @@ function LandingPage({ isLoggedIn, session, onOpenLogin, onOpenSignup }) {
           session={session}
           onOpenLogin={onOpenLogin}
           onOpenSignup={onOpenSignup}
+          onGetStarted={onGetStarted}
         />
       </section>
       <section id="about">
@@ -226,6 +234,29 @@ function AppInner() {
     clearModalFromUrl();
   };
 
+  const goToGetStarted = () => {
+    if (!isLoggedIn) {
+      openLogin("patient");
+      return;
+    }
+
+    if (session?.role === "admin") {
+      navigate("/admin/verification");
+      return;
+    }
+
+    if (session?.role === "doctor") {
+      navigate(
+        doctorVerificationStatus === "verified"
+          ? "/dashboard/doctor"
+          : "/doctor/verification"
+      );
+      return;
+    }
+
+    navigate("/analysis");
+  };
+
   return (
     <>
       <Navbar
@@ -234,6 +265,7 @@ function AppInner() {
         onLogout={onLogout}
         onOpenLogin={openLogin}
         onOpenSignup={openSignup}
+        onGetStarted={goToGetStarted}
       />
 
       <main className={isHome ? "" : "pt-22 sm:pt-24"}>
@@ -246,6 +278,7 @@ function AppInner() {
                 session={session}
                 onOpenLogin={openLogin}
                 onOpenSignup={openSignup}
+                onGetStarted={goToGetStarted}
               />
             }
           />
@@ -314,6 +347,15 @@ function AppInner() {
             element={
               <ProtectedRole session={session} role="patient">
                 <PatientDashboard session={session} onLogout={onLogout} />
+              </ProtectedRole>
+            }
+          />
+
+          <Route
+            path="/analysis"
+            element={
+              <ProtectedRole session={session} role="patient">
+                <PatientAnalysisPage session={session} />
               </ProtectedRole>
             }
           />
