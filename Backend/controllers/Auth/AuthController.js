@@ -3,40 +3,74 @@ import Patient from "../../Schema/patientSchema.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+const generateCandidateId = (prefix) => {
+  const timestampPart = Date.now().toString(36).toUpperCase();
+  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `${prefix}-${timestampPart}-${randomPart}`;
+};
+
+const generateUniqueId = async (model, field, prefix) => {
+  let candidate = generateCandidateId(prefix);
+  let exists = await model.exists({ [field]: candidate });
+
+  while (exists) {
+    candidate = generateCandidateId(prefix);
+    exists = await model.exists({ [field]: candidate });
+  }
+
+  return candidate;
+};
+
+const formatDoctorAuthResponse = (doctor) => ({
+  id: doctor._id,
+  doctorId: doctor.doctorId,
+  fullName: doctor.fullName,
+  email: doctor.email,
+  specialization: doctor.specialization,
+});
+
 // ─── Doctor Signup ───────────────────────────────────────────────────────────
 export const doctorSignup = async (req, res) => {
   try {
-    const {
-      fullName,
-      email,
-      password,
-      specialization,
-      experience,
-      phoneNumber,
-      clinicAddress,
-      licenseNumber,
-      clinicName,
-      city,
-    } = req.body;
+    const payload = {
+      fullName: String(req.body?.fullName || "").trim(),
+      email: String(req.body?.email || "")
+        .trim()
+        .toLowerCase(),
+      password: String(req.body?.password || ""),
+      specialization: String(req.body?.specialization || "").trim(),
+      experience: Number(req.body?.experience),
+      phoneNumber: String(req.body?.phoneNumber || "").trim(),
+      clinicAddress: String(req.body?.clinicAddress || "").trim(),
+      licenseNumber: String(req.body?.licenseNumber || "").trim(),
+      clinicName: String(req.body?.clinicName || "").trim(),
+      city: String(req.body?.city || "").trim(),
+    };
 
     // Validate required fields
     if (
-      !fullName ||
-      !email ||
-      !password ||
-      !specialization ||
-      !experience ||
-      !phoneNumber ||
-      !clinicAddress ||
-      !licenseNumber ||
-      !clinicName ||
-      !city
+      !payload.fullName ||
+      !payload.email ||
+      !payload.password ||
+      !payload.specialization ||
+      Number.isNaN(payload.experience) ||
+      !payload.phoneNumber ||
+      !payload.clinicAddress ||
+      !payload.licenseNumber ||
+      !payload.clinicName ||
+      !payload.city
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    if (!Number.isFinite(payload.experience) || payload.experience < 0) {
+      return res
+        .status(400)
+        .json({ message: "Experience must be a valid number" });
+    }
+
     // Check if doctor already exists
-    const existingDoctor = await Doctor.findOne({ email });
+    const existingDoctor = await Doctor.findOne({ email: payload.email });
     if (existingDoctor) {
       return res
         .status(409)
@@ -46,19 +80,21 @@ export const doctorSignup = async (req, res) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+    const doctorId = await generateUniqueId(Doctor, "doctorId", "DOC");
 
     // Create doctor
     const doctor = await Doctor.create({
-      fullName,
-      email,
+      doctorId,
+      fullName: payload.fullName,
+      email: payload.email,
       password: hashedPassword,
-      specialization,
-      experience,
-      phoneNumber,
-      clinicAddress,
-      licenseNumber,
-      clinicName,
-      city,
+      specialization: payload.specialization,
+      experience: payload.experience,
+      phoneNumber: payload.phoneNumber,
+      clinicAddress: payload.clinicAddress,
+      licenseNumber: payload.licenseNumber,
+      clinicName: payload.clinicName,
+      city: payload.city,
     });
 
     // Generate JWT
@@ -71,12 +107,7 @@ export const doctorSignup = async (req, res) => {
     return res.status(201).json({
       message: "Doctor registered successfully",
       token,
-      doctor: {
-        id: doctor._id,
-        fullName: doctor.fullName,
-        email: doctor.email,
-        specialization: doctor.specialization,
-      },
+      doctor: formatDoctorAuthResponse(doctor),
     });
   } catch (error) {
     console.error("Doctor Signup Error:", error.message);
@@ -87,7 +118,10 @@ export const doctorSignup = async (req, res) => {
 // ─── Doctor Login ─────────────────────────────────────────────────────────────
 export const doctorLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    const password = String(req.body?.password || "");
 
     if (!email || !password) {
       return res
@@ -117,12 +151,7 @@ export const doctorLogin = async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       token,
-      doctor: {
-        id: doctor._id,
-        fullName: doctor.fullName,
-        email: doctor.email,
-        specialization: doctor.specialization,
-      },
+      doctor: formatDoctorAuthResponse(doctor),
     });
   } catch (error) {
     console.error("Doctor Login Error:", error.message);
@@ -147,6 +176,7 @@ const patientSignupRequiredFields = [
 
 const formatPatientAuthResponse = (patient) => ({
   id: patient._id,
+  patientId: patient.patientId,
   fullName: patient.fullName,
   email: patient.email,
   age: patient.age,
@@ -215,8 +245,10 @@ export const patientSignup = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(payload.password, salt);
+    const patientId = await generateUniqueId(Patient, "patientId", "PAT");
 
     const patient = await Patient.create({
+      patientId,
       ...payload,
       password: hashedPassword,
     });

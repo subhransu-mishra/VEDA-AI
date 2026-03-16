@@ -2,9 +2,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-
-const DOCTORS_KEY = "veda_doctors";
-const PATIENTS_KEY = "veda_patients";
+import { toast } from "react-toastify";
+import { authApi } from "../api/authApi";
+import {
+  createSession,
+  findDoctorCacheByEmail,
+  upsertDoctorCache,
+  upsertPatientCache,
+} from "../utils/authStorage";
 
 /**
  * Hidden admin credentials (demo only).
@@ -12,16 +17,12 @@ const PATIENTS_KEY = "veda_patients";
  */
 const ADMIN_CREDENTIALS = [
   { email: "admin@vedaai.com", password: "Admin@123", name: "Super Admin" },
-  { email: "review@vedaai.com", password: "Review@123", name: "Verification Admin" },
+  {
+    email: "review@vedaai.com",
+    password: "Review@123",
+    name: "Verification Admin",
+  },
 ];
-
-const readList = (key) => {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
-};
 
 const isValidRole = (r) => r === "patient" || r === "doctor";
 
@@ -38,6 +39,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
     password: "",
   });
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
     onClose?.();
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -82,7 +84,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
     // Hidden admin login through doctor role
     if (form.role === "doctor") {
       const adminMatch = ADMIN_CREDENTIALS.find(
-        (a) => a.email.toLowerCase() === email && a.password === password
+        (a) => a.email.toLowerCase() === email && a.password === password,
       );
 
       if (adminMatch) {
@@ -96,40 +98,82 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
 
         resetAuthFields("doctor");
         onLogin?.(adminSession);
+        toast.success("Admin login successful");
         navigate("/admin/verification");
         return;
       }
     }
 
-    const users = form.role === "doctor" ? readList(DOCTORS_KEY) : readList(PATIENTS_KEY);
-    const found = users.find(
-      (u) =>
-        u.email.toLowerCase() === email &&
-        u.password === password
-    );
+    setIsSubmitting(true);
 
-    if (!found) {
-      setError("Invalid credentials for selected role.");
-      return;
-    }
+    try {
+      if (form.role === "doctor") {
+        const response = await authApi.doctorLogin({ email, password });
+        const existingDoctor = findDoctorCacheByEmail(email);
+        const cachedDoctor = upsertDoctorCache({
+          id: response.doctor.id,
+          doctorId: response.doctor.doctorId,
+          role: "doctor",
+          fullName: existingDoctor?.fullName || response.doctor.fullName,
+          email: response.doctor.email,
+          phone: existingDoctor?.phone || "",
+          specialization:
+            existingDoctor?.specialization || response.doctor.specialization,
+          licenseNumber: existingDoctor?.licenseNumber || "",
+          hospitalName: existingDoctor?.hospitalName || "",
+          experienceYears: existingDoctor?.experienceYears || 0,
+          clinicAddress: existingDoctor?.clinicAddress || "",
+          city: existingDoctor?.city || "",
+          verificationStatus:
+            existingDoctor?.verificationStatus || "not_submitted",
+          verificationReviewReason:
+            existingDoctor?.verificationReviewReason || "",
+        });
 
-    const nextSession = {
-      id: found.id,
-      role: form.role,
-      name: found.fullName,
-      email: found.email,
-      verificationStatus: found.verificationStatus || "not_submitted",
-      loggedInAt: new Date().toISOString(),
-    };
+        const nextSession = createSession({
+          user: response.doctor,
+          role: "doctor",
+          token: response.token,
+          fallbackFields: {
+            verificationStatus: cachedDoctor.verificationStatus,
+          },
+        });
 
-    resetAuthFields(form.role);
-    onLogin?.(nextSession);
+        resetAuthFields(form.role);
+        onLogin?.(nextSession);
+        toast.success(response.message || "Login successful");
 
-    if (form.role === "doctor") {
-      const status = found.verificationStatus || "not_submitted";
-      navigate(status === "verified" ? "/dashboard/doctor" : "/doctor/verification");
-    } else {
-      navigate("/dashboard/patient");
+        navigate(
+          cachedDoctor.verificationStatus === "verified"
+            ? "/dashboard/doctor"
+            : "/doctor/verification",
+        );
+      } else {
+        const response = await authApi.patientLogin({ email, password });
+
+        upsertPatientCache({
+          ...response.patient,
+          role: "patient",
+        });
+
+        const nextSession = createSession({
+          user: response.patient,
+          role: "patient",
+          token: response.token,
+        });
+
+        resetAuthFields(form.role);
+        onLogin?.(nextSession);
+        toast.success(response.message || "Login successful");
+        navigate("/dashboard/patient");
+      }
+    } catch (submitError) {
+      const message =
+        submitError.message || "Invalid credentials for selected role.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -152,15 +196,15 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeModal}
-            className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm cursor-pointer"
+            className="fixed inset-0 z-210 bg-black/60 backdrop-blur-sm cursor-pointer"
           />
 
-          <div className="fixed inset-0 z-[220] flex items-center justify-center p-6 pointer-events-none">
+          <div className="fixed inset-0 z-220 flex items-center justify-center p-6 pointer-events-none">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className="relative flex w-full max-w-[760px] lg:h-[500px] overflow-hidden rounded-[1.5rem] bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.45)] pointer-events-auto"
+              className="relative flex w-full max-w-190 overflow-hidden rounded-3xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.45)] pointer-events-auto lg:h-125"
             >
               <div className="relative hidden w-[42%] bg-[#0a1128] lg:block">
                 <img
@@ -168,7 +212,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                   alt="Login Background"
                   className="h-full w-full object-cover opacity-60 grayscale hover:grayscale-0 transition-all duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-tr from-[#0a1128]/80 via-transparent to-transparent p-10 flex flex-col justify-end">
+                <div className="absolute inset-0 bg-linear-to-tr from-[#0a1128]/80 via-transparent to-transparent p-10 flex flex-col justify-end">
                   <h2 className="text-3xl font-light tracking-tight text-white uppercase leading-none">
                     Veda <br />
                     <span className="italic font-normal">Health</span>
@@ -179,12 +223,29 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
               <div className="flex w-full flex-col bg-white px-8 py-10 lg:w-[58%] lg:px-12">
                 <header className="mb-8 flex items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Log In</h1>
-                    <p className="text-xs text-slate-400 mt-1">Welcome back to your portal.</p>
+                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                      Log In
+                    </h1>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Welcome back to your portal.
+                    </p>
                   </div>
-                  <button onClick={closeModal} className="text-slate-300 hover:text-slate-900 transition-colors">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  <button
+                    onClick={closeModal}
+                    className="text-slate-300 hover:text-slate-900 transition-colors"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </header>
@@ -196,12 +257,17 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                       type="button"
                       onClick={() => switchRole(role)}
                       className={`relative pb-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${
-                        form.role === role ? "text-slate-900" : "text-slate-300 hover:text-slate-500"
+                        form.role === role
+                          ? "text-slate-900"
+                          : "text-slate-300 hover:text-slate-500"
                       }`}
                     >
                       {role}
                       {form.role === role && (
-                        <motion.div layoutId="tab" className="absolute bottom-0 left-0 h-[2px] w-full bg-slate-900" />
+                        <motion.div
+                          layoutId="tab"
+                          className="absolute bottom-0 left-0 h-0.5 w-full bg-slate-900"
+                        />
                       )}
                     </button>
                   ))}
@@ -215,7 +281,9 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                     <input
                       type="email"
                       value={form.email}
-                      onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, email: e.target.value }))
+                      }
                       required
                       placeholder="Enter your email"
                       className="w-full border-b border-slate-200 bg-transparent py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-900 placeholder:text-slate-400"
@@ -230,7 +298,9 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                       <input
                         type={showPassword ? "text" : "password"}
                         value={form.password}
-                        onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, password: e.target.value }))
+                        }
                         required
                         placeholder="••••••••"
                         className="w-full border-b border-slate-200 bg-transparent py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-900 placeholder:text-slate-400"
@@ -245,20 +315,29 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                     </div>
                   </div>
 
-                  {error && <p className="text-[10px] font-bold text-red-500 uppercase">{error}</p>}
+                  {error && (
+                    <p className="text-[10px] font-bold text-red-500 uppercase">
+                      {error}
+                    </p>
+                  )}
 
                   <button
                     type="submit"
+                    disabled={isSubmitting}
                     className="mt-2 w-full bg-[#0a1128] py-3.5 text-[10px] font-bold tracking-[0.3em] text-white uppercase transition-all hover:bg-black active:scale-[0.98] shadow-lg shadow-black/10"
                   >
-                    Enter Portal
+                    {isSubmitting ? "Signing In..." : "Enter Portal"}
                   </button>
                 </form>
 
                 <footer className="mt-10 flex flex-col gap-1 items-center lg:items-start">
                   <p className="text-[10px] text-slate-400">
                     New to Veda?{" "}
-                    <button type="button" onClick={goToSignup} className="font-bold text-slate-900 hover:underline">
+                    <button
+                      type="button"
+                      onClick={goToSignup}
+                      className="font-bold text-slate-900 hover:underline"
+                    >
                       Join now
                     </button>
                   </p>
