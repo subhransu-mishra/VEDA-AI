@@ -29,9 +29,12 @@ import AdminVerificationPanel from "./pages/AdminVerificationPanel";
 
 import DoctorSignup from "./components/DoctorSignup";
 import DoctorVerification from "./components/DoctorVerification";
-
-const SESSION_KEY = "veda_session";
-const DOCTORS_KEY = "veda_doctors";
+import {
+  clearSession,
+  DOCTORS_KEY,
+  persistSession,
+  SESSION_KEY,
+} from "./utils/authStorage";
 
 function readSession() {
   try {
@@ -52,24 +55,31 @@ function readList(key) {
 function getDoctorByEmail(email) {
   if (!email) return null;
   return readList(DOCTORS_KEY).find(
-    (d) => d.email?.toLowerCase() === email.toLowerCase()
+    (d) => d.email?.toLowerCase() === email.toLowerCase(),
   );
 }
 
 function ProtectedRole({ session, role, children }) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== role) {
-    if (session.role === "doctor") return <Navigate to="/doctor/verification" replace />;
-    if (session.role === "admin") return <Navigate to="/admin/verification" replace />;
+    if (session.role === "doctor")
+      return <Navigate to="/doctor/verification" replace />;
+    if (session.role === "admin")
+      return <Navigate to="/admin/verification" replace />;
     return <Navigate to="/dashboard/patient" replace />;
   }
   return children;
 }
 
-function ProtectedDoctorDashboard({ session, doctorVerificationStatus, children }) {
+function ProtectedDoctorDashboard({
+  session,
+  doctorVerificationStatus,
+  children,
+}) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== "doctor") {
-    if (session.role === "admin") return <Navigate to="/admin/verification" replace />;
+    if (session.role === "admin")
+      return <Navigate to="/admin/verification" replace />;
     return <Navigate to="/dashboard/patient" replace />;
   }
   if (doctorVerificationStatus !== "verified") {
@@ -78,10 +88,15 @@ function ProtectedDoctorDashboard({ session, doctorVerificationStatus, children 
   return children;
 }
 
-function ProtectedDoctorVerification({ session, doctorVerificationStatus, children }) {
+function ProtectedDoctorVerification({
+  session,
+  doctorVerificationStatus,
+  children,
+}) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== "doctor") {
-    if (session.role === "admin") return <Navigate to="/admin/verification" replace />;
+    if (session.role === "admin")
+      return <Navigate to="/admin/verification" replace />;
     return <Navigate to="/dashboard/patient" replace />;
   }
   if (doctorVerificationStatus === "verified") {
@@ -93,8 +108,10 @@ function ProtectedDoctorVerification({ session, doctorVerificationStatus, childr
 function ProtectedAdmin({ session, children }) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== "admin") {
-    if (session.role === "doctor") return <Navigate to="/doctor/verification" replace />;
-    if (session.role === "patient") return <Navigate to="/dashboard/patient" replace />;
+    if (session.role === "doctor")
+      return <Navigate to="/doctor/verification" replace />;
+    if (session.role === "patient")
+      return <Navigate to="/dashboard/patient" replace />;
     return <Navigate to="/" replace />;
   }
   return children;
@@ -111,10 +128,18 @@ function LandingPage({ isLoggedIn, session, onOpenLogin, onOpenSignup }) {
           onOpenSignup={onOpenSignup}
         />
       </section>
-      <section id="about"><About /></section>
-      <section id="features"><Features /></section>
-      <section id="how-to-use"><HowToUse /></section>
-      <section id="reviews"><Testimonials /></section>
+      <section id="about">
+        <About />
+      </section>
+      <section id="features">
+        <Features />
+      </section>
+      <section id="how-to-use">
+        <HowToUse />
+      </section>
+      <section id="reviews">
+        <Testimonials />
+      </section>
     </>
   );
 }
@@ -131,11 +156,14 @@ function AppInner() {
   const isHome = location.pathname === "/";
 
   const doctorProfile = useMemo(() => {
+    void doctorRefresh;
+
     if (session?.role !== "doctor" || !session?.email) return null;
     return getDoctorByEmail(session.email);
   }, [session, doctorRefresh]);
 
-  const doctorVerificationStatus = doctorProfile?.verificationStatus || "not_submitted";
+  const doctorVerificationStatus =
+    doctorProfile?.verificationStatus || "not_submitted";
 
   const modal = searchParams.get("modal");
   const loginOpen = modal === "login" && !isLoggedIn;
@@ -186,14 +214,14 @@ function AppInner() {
   };
 
   const onAuth = (nextSession) => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+    persistSession(nextSession);
     setSession(nextSession);
     setDoctorRefresh((v) => v + 1);
     clearModalFromUrl();
   };
 
   const onLogout = () => {
-    localStorage.removeItem(SESSION_KEY);
+    clearSession();
     setSession(null);
     clearModalFromUrl();
   };
@@ -222,18 +250,39 @@ function AppInner() {
             }
           />
 
-          <Route path="/login" element={<Navigate to="/?modal=login&role=patient" replace />} />
-          <Route path="/login/patient" element={<Navigate to="/?modal=login&role=patient" replace />} />
-          <Route path="/login/doctor" element={<Navigate to="/?modal=login&role=doctor" replace />} />
+          <Route
+            path="/login"
+            element={<Navigate to="/?modal=login&role=patient" replace />}
+          />
+          <Route
+            path="/login/patient"
+            element={<Navigate to="/?modal=login&role=patient" replace />}
+          />
+          <Route
+            path="/login/doctor"
+            element={<Navigate to="/?modal=login&role=doctor" replace />}
+          />
 
           <Route path="/signup" element={<Navigate to="/" replace />} />
           <Route
             path="/signup/doctor"
-            element={isLoggedIn ? <Navigate to="/" replace /> : <DoctorSignup onSignup={onAuth} />}
+            element={
+              isLoggedIn ? (
+                <Navigate to="/" replace />
+              ) : (
+                <DoctorSignup onSignup={onAuth} />
+              )
+            }
           />
           <Route
             path="/signup/patient"
-            element={isLoggedIn ? <Navigate to="/" replace /> : <PatientSignup onSignup={onAuth} />}
+            element={
+              isLoggedIn ? (
+                <Navigate to="/" replace />
+              ) : (
+                <PatientSignup onSignup={onAuth} />
+              )
+            }
           />
 
           <Route

@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDb from "./config/db.js";
 import authRoutes from "./routes/AuthRoutes/AuthRoute.js";
+import diagnosisRoutes from "./routes/DiagnosisRoutes/DiagnosisRoute.js";
+import caseRoutes from "./routes/CaseRoutes/CaseRoute.js";
 dotenv.config();
 
 const app = express();
@@ -12,6 +14,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
+app.use("/api/diagnosis", diagnosisRoutes);
+app.use("/api/case", caseRoutes);
 
 const startServer = async () => {
   await connectDb();
