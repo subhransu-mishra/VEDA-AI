@@ -73,4 +73,11 @@ export const upsertPatientCache = (patient) => {
   return patient;
 };
 
+export const findPatientCacheByEmail = (email) => {
+  if (!email) return null;
+  return readList(PATIENTS_KEY).find(
+    (item) => item.email?.toLowerCase() === email.toLowerCase(),
+  );
+};
+
 export { DOCTORS_KEY, PATIENTS_KEY, SESSION_KEY };

@@ -5,50 +5,59 @@ import { analyzeWithGemini } from "../../services/geminiService.js";
 // ─── Prompt Builder ───────────────────────────────────────────────────────────
 
 const buildMedicalPrompt = ({
-  age,
-  gender,
-  symptoms,
-  symptomDuration,
-  existingConditions,
-  medications,
-  allergies,
-  painLevel,
-  additionalNotes,
+  patientProfile,
+  intake,
   reportText,
-}) => `You are an AI medical triage assistant.
+}) => `You are a clinical AI triage assistant.
 
-Analyze the following patient data and medical report information.
+Use the provided patient profile, current symptom intake, and uploaded report text to generate a concise, structured triage report.
 
-Patient Information:
-Age: ${age}
-Gender: ${gender}
-Symptoms: ${symptoms}
-Duration: ${symptomDuration}
-Existing Conditions: ${existingConditions}
-Medications: ${medications}
-Allergies: ${allergies}
-Pain Level: ${painLevel}/10
-Notes: ${additionalNotes}
+Patient Profile (from signup):
+${JSON.stringify(patientProfile, null, 2)}
+
+Current Intake:
+${JSON.stringify(intake, null, 2)}
 
 Medical Report Text:
-${reportText}
+${reportText || "No report text available"}
 
-Your task:
-1. Identify possible medical conditions.
-2. Determine urgency level (low, medium, high, emergency).
-3. Recommend the type of specialist the patient should consult.
-4. Suggest possible diagnostic tests.
-5. Provide a short summary of the patient's situation.
+Instructions:
+1. Keep the report practical and easy to understand.
+2. Explain what the likely disease/condition can be and why it may have happened.
+3. Explain what the patient should do to resolve/manage this.
+4. Mention which specialist(s) to consult.
+5. Provide emergency level and red-flag warning signs.
+6. Include suggested diagnostic tests.
+7. Do not claim a definitive diagnosis unless clearly supported.
 
 IMPORTANT:
-Return the response ONLY in valid JSON format. No extra text, no markdown, no code blocks outside the JSON.
-
+Return ONLY valid JSON, with this exact top-level structure:
 {
-  "possible_conditions": [],
-  "urgency_level": "",
-  "recommended_specialist": "",
-  "recommended_tests": [],
-  "summary": ""
+  "condition_analysis": {
+    "possible_conditions": [
+      {
+        "name": "",
+        "likelihood": "low|medium|high",
+        "why_it_fits": ""
+      }
+    ],
+    "possible_causes": [""],
+    "patient_friendly_explanation": ""
+  },
+  "recommended_resolution": {
+    "immediate_steps": [""],
+    "home_care": [""],
+    "tests_to_consider": [""],
+    "specialists_to_consult": [""],
+    "follow_up_window": ""
+  },
+  "emergency_assessment": {
+    "level": "low|moderate|high|critical",
+    "why": "",
+    "red_flags": [""]
+  },
+  "summary": "",
+  "disclaimer": ""
 }`;
 
 // ─── Safe JSON Parser ─────────────────────────────────────────────────────────
@@ -75,6 +84,127 @@ const normalizeField = (val) => {
   return str || "None";
 };
 
+const normalizeStringArray = (value, fallback = []) => {
+  if (!Array.isArray(value)) return fallback;
+  const cleaned = value
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+  return cleaned.length ? cleaned : fallback;
+};
+
+const normalizeLikelihood = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (["low", "medium", "high"].includes(normalized)) return normalized;
+  return "medium";
+};
+
+const normalizeEmergencyLevel = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (["low", "moderate", "high", "critical"].includes(normalized)) {
+    return normalized;
+  }
+  return "moderate";
+};
+
+const normalizeAnalysis = (raw) => {
+  const possibleConditionsRaw = Array.isArray(
+    raw?.condition_analysis?.possible_conditions,
+  )
+    ? raw.condition_analysis.possible_conditions
+    : [];
+
+  const possibleConditions = possibleConditionsRaw
+    .map((item) => ({
+      name: String(item?.name || "").trim(),
+      likelihood: normalizeLikelihood(item?.likelihood),
+      whyItFits: String(item?.why_it_fits || "").trim() || "Not specified",
+    }))
+    .filter((item) => item.name);
+
+  const causes = normalizeStringArray(
+    raw?.condition_analysis?.possible_causes,
+    ["Cause could not be determined from available information."],
+  );
+
+  const explanation =
+    String(
+      raw?.condition_analysis?.patient_friendly_explanation || "",
+    ).trim() ||
+    "Your symptoms require clinical review to identify the exact cause.";
+
+  const immediateSteps = normalizeStringArray(
+    raw?.recommended_resolution?.immediate_steps,
+    ["Consult a qualified doctor with your reports and symptom timeline."],
+  );
+
+  const homeCare = normalizeStringArray(
+    raw?.recommended_resolution?.home_care,
+    ["Maintain hydration and monitor symptoms closely."],
+  );
+
+  const testsToConsider = normalizeStringArray(
+    raw?.recommended_resolution?.tests_to_consider,
+    ["No specific tests suggested."],
+  );
+
+  const specialistsToConsult = normalizeStringArray(
+    raw?.recommended_resolution?.specialists_to_consult,
+    ["General Physician"],
+  );
+
+  const followUpWindow =
+    String(raw?.recommended_resolution?.follow_up_window || "").trim() ||
+    "Follow up within 24-72 hours or sooner if symptoms worsen.";
+
+  const emergencyLevel = normalizeEmergencyLevel(
+    raw?.emergency_assessment?.level,
+  );
+
+  const emergencyWhy =
+    String(raw?.emergency_assessment?.why || "").trim() ||
+    "Emergency risk cannot be ruled out without physical examination.";
+
+  const redFlags = normalizeStringArray(raw?.emergency_assessment?.red_flags, [
+    "Severe worsening of symptoms",
+  ]);
+
+  const summary =
+    String(raw?.summary || "").trim() ||
+    "AI triage completed. Please consult a doctor for confirmation.";
+
+  const disclaimer =
+    String(raw?.disclaimer || "").trim() ||
+    "This AI report is informational only and not a final medical diagnosis.";
+
+  return {
+    conditionAnalysis: {
+      possibleConditions,
+      possibleCauses: causes,
+      patientFriendlyExplanation: explanation,
+    },
+    recommendedResolution: {
+      immediateSteps,
+      homeCare,
+      testsToConsider,
+      specialistsToConsult,
+      followUpWindow,
+    },
+    emergencyAssessment: {
+      level: emergencyLevel,
+      why: emergencyWhy,
+      redFlags,
+    },
+    summary,
+    disclaimer,
+    recommendedSpecialist: specialistsToConsult[0] || "General Physician",
+    urgency: emergencyLevel,
+  };
+};
+
 // ─── POST /api/case/analyze ───────────────────────────────────────────────────
 
 /**
@@ -85,8 +215,6 @@ const normalizeField = (val) => {
 export const analyzeCase = async (req, res) => {
   try {
     const {
-      age,
-      gender,
       symptoms,
       symptomDuration,
       existingConditions,
@@ -94,12 +222,12 @@ export const analyzeCase = async (req, res) => {
       allergies,
       painLevel,
       additionalNotes,
+      age,
+      gender,
     } = req.body;
 
     // ── Input validation ───────────────────────────────────────────────────────
     if (
-      !age ||
-      !gender ||
       !symptoms ||
       !symptomDuration ||
       painLevel === undefined ||
@@ -107,8 +235,7 @@ export const analyzeCase = async (req, res) => {
       painLevel === ""
     ) {
       return res.status(400).json({
-        message:
-          "age, gender, symptoms, symptomDuration, and painLevel are required",
+        message: "symptoms, symptomDuration, and painLevel are required",
       });
     }
 
@@ -153,16 +280,40 @@ export const analyzeCase = async (req, res) => {
       ? symptoms.join(", ")
       : String(symptoms);
 
-    const prompt = buildMedicalPrompt({
-      age: String(age),
-      gender: String(gender),
+    const patientProfile = {
+      patientId: req.patient?.patientId || "Unknown",
+      fullName: req.patient?.fullName || "Unknown",
+      email: req.patient?.email || "Unknown",
+      age: req.patient?.age,
+      gender: req.patient?.gender,
+      bloodType: req.patient?.bloodType,
+      height: req.patient?.height,
+      weight: req.patient?.weight,
+      phoneNumber: req.patient?.phoneNumber,
+      city: req.patient?.city,
+      emergencyContactName: req.patient?.emergencyContactName,
+      emergencyPhone: req.patient?.emergencyPhone,
+    };
+
+    const intake = {
+      age: normalizeField(age || req.patient?.age),
+      gender: normalizeField(gender || req.patient?.gender),
       symptoms: symptomsStr,
       symptomDuration: String(symptomDuration).trim(),
       existingConditions: normalizeField(existingConditions),
       medications: normalizeField(medications),
       allergies: normalizeField(allergies),
-      painLevel: parsedPainLevel.toString(),
+      painLevel: parsedPainLevel,
       additionalNotes: normalizeField(additionalNotes),
+      uploadedFiles: files.map((f) => ({
+        originalName: f.originalname,
+        mimeType: f.mimetype,
+      })),
+    };
+
+    const prompt = buildMedicalPrompt({
+      patientProfile,
+      intake,
       reportText: reportText.trim() || "No medical reports uploaded",
     });
 
@@ -172,19 +323,21 @@ export const analyzeCase = async (req, res) => {
     // ── Step 4: Safely parse the JSON response from Gemini ─────────────────────
     let analysis;
     try {
-      analysis = safeParseGeminiResponse(rawGeminiResponse);
+      const parsed = safeParseGeminiResponse(rawGeminiResponse);
+      analysis = normalizeAnalysis(parsed);
     } catch (parseErr) {
-      console.error(
-        "Failed to parse Gemini JSON response:",
-        rawGeminiResponse,
-      );
+      console.error("Failed to parse Gemini JSON response:", rawGeminiResponse);
       return res.status(502).json({
         message: "AI returned an unreadable response. Please try again.",
       });
     }
 
     // ── Step 5: Return the structured analysis ─────────────────────────────────
-    return res.status(200).json({ analysis });
+    return res.status(200).json({
+      analysis,
+      intake,
+      patientProfile,
+    });
   } catch (error) {
     console.error("Analyze Case Error:", error.message);
     return res.status(500).json({ message: "Internal Server Error" });

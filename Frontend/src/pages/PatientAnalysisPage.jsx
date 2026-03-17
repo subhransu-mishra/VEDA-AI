@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -6,12 +6,18 @@ import {
   Bot,
   CheckCircle2,
   Clock3,
+  Eye,
+  MessageCircle,
   Send,
   Sparkles,
   Stethoscope,
   Upload,
+  X,
   UserRound,
 } from "lucide-react";
+import { Triangle } from "react-loader-spinner";
+import { analysisApi } from "../api/analysisApi";
+import { findPatientCacheByEmail } from "../utils/authStorage";
 import {
   createAnalysisCase,
   getAnalysisCasesForPatient,
@@ -19,6 +25,7 @@ import {
 } from "../utils/analysisStorage";
 
 const easeSmooth = [0.22, 1, 0.36, 1];
+const Motion = motion;
 
 const STATUS_STEPS = [
   "creating_report",
@@ -34,6 +41,13 @@ const STATUS_LABEL = {
   accepted_by_doctor: "Accepted by doctor",
 };
 
+const LOADING_TEXTS = [
+  "Processing request...",
+  "AI is analyzing your symptoms...",
+  "Building your structured medical report...",
+  "Preparing specialist recommendation...",
+];
+
 const randomDoctors = ["Dr. Mehta", "Dr. Ananya", "Dr. Sharma", "Dr. Rao"];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,43 +56,6 @@ const makeChatId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-const inferDoctorType = (symptoms = "", notes = "") => {
-  const text = `${symptoms} ${notes}`.toLowerCase();
-  if (text.includes("chest") || text.includes("bp") || text.includes("heart")) {
-    return "Cardiologist";
-  }
-  if (text.includes("sugar") || text.includes("diabetes") || text.includes("thyroid")) {
-    return "Endocrinologist";
-  }
-  if (text.includes("skin") || text.includes("rash")) {
-    return "Dermatologist";
-  }
-  return "General Physician";
-};
-
-const buildAiResult = (form, uploads) => {
-  const severity = Number(form.severity || 1);
-  const urgency = severity >= 8 ? "High" : severity >= 5 ? "Moderate" : "Low";
-
-  return {
-    model: "gemini-local-mock",
-    summary:
-      urgency === "High"
-        ? "Your case looks high priority. Please connect with a doctor quickly."
-        : "Your details are reviewed. Doctor consultation is recommended for safe next steps.",
-    urgency,
-    recommendedDoctor: inferDoctorType(form.symptoms, form.notes),
-    keyPoints: [
-      `Concern: ${form.symptoms || "Not provided"}`,
-      `Duration: ${form.duration || "Not provided"}`,
-      `Severity: ${severity}/10`,
-      uploads.length
-        ? `Files: ${uploads.map((f) => f.name).join(", ")}`
-        : "Files: none",
-    ],
-  };
-};
 
 const aiFollowUp = (text, ai) => {
   const q = text.toLowerCase();
@@ -121,14 +98,31 @@ export default function PatientAnalysisPage({ session }) {
   const [chatInput, setChatInput] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
   const [activeCase, setActiveCase] = useState(null);
+  const [analysisError, setAnalysisError] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [loadingTextIndex, setLoadingTextIndex] = useState(0);
 
-  const history = useMemo(
-    () => getAnalysisCasesForPatient(session?.email || ""),
-    [session?.email, refreshTick]
-  );
+  const history = useMemo(() => {
+    void refreshTick;
+    return getAnalysisCasesForPatient(session?.email || "");
+  }, [session?.email, refreshTick]);
 
   const currentStatus = activeCase?.doctorFlow?.status || "not_started";
   const currentStatusIndex = STATUS_STEPS.indexOf(currentStatus);
+
+  useEffect(() => {
+    if (!submitting) {
+      setLoadingTextIndex(0);
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setLoadingTextIndex((prev) => (prev + 1) % LOADING_TEXTS.length);
+    }, 1700);
+
+    return () => clearInterval(intervalId);
+  }, [submitting]);
 
   const refresh = () => setRefreshTick((v) => v + 1);
 
@@ -180,44 +174,113 @@ export default function PatientAnalysisPage({ session }) {
     if (!form.symptoms.trim()) return;
 
     setSubmitting(true);
+    setAnalysisError("");
 
-    // TODO(BACKEND): POST /api/analysis/intake with full form + uploads
-    // TODO(BACKEND): call Gemini on backend and persist structured output
-    await sleep(900);
+    const patientProfile = findPatientCacheByEmail(session?.email || "") || {};
 
-    const uploads = selectedFiles.map((f) => ({
-      name: f.name,
-      size: f.size,
-      type: f.type,
-    }));
+    const payload = {
+      age: form.age || patientProfile.age || session?.age,
+      gender: form.gender || patientProfile.gender || session?.gender,
+      symptoms: form.symptoms,
+      symptomDuration: form.duration,
+      existingConditions: patientProfile.knownConditions || "",
+      medications: form.medications,
+      allergies: form.allergies || patientProfile.allergiesNotes || "",
+      painLevel: form.severity,
+      additionalNotes: form.notes,
+      patientFullName: session?.name || patientProfile.fullName || "",
+      patientEmail: session?.email || patientProfile.email || "",
+      patientId: session?.patientId || patientProfile.patientId || "",
+      patientPhone: patientProfile.phoneNumber || "",
+      patientCity: patientProfile.city || "",
+      bloodType: patientProfile.bloodType || "",
+      emergencyContactName: patientProfile.emergencyContactName || "",
+      emergencyPhone: patientProfile.emergencyPhone || "",
+      primaryConcern: patientProfile.primaryConcern || "",
+    };
 
-    const ai = buildAiResult(form, uploads);
+    if (!session?.token) {
+      setAnalysisError(
+        "Session expired. Please log in again to generate AI diagnosis.",
+      );
+      setSubmitting(false);
+      return;
+    }
 
-    const created = createAnalysisCase({
-      session,
-      form,
-      uploads,
-      ai,
-      doctorFlow: {
-        status: "not_started",
-        doctorName: "",
-        etaMinutes: null,
-        returnAt: "",
-        timeline: [],
-      },
-      chat: [
-        {
-          id: makeChatId(),
-          role: "ai",
-          text: `I analyzed your details. ${ai.summary}`,
-          createdAt: new Date().toISOString(),
+    try {
+      const response = await analysisApi.analyzeCase({
+        token: session?.token,
+        payload,
+        reports: selectedFiles,
+      });
+
+      const structuredReport = response?.analysis || {};
+      const topCondition =
+        structuredReport?.conditionAnalysis?.possibleConditions?.[0]?.name ||
+        "Not enough data";
+      const topCause =
+        structuredReport?.conditionAnalysis?.possibleCauses?.[0] ||
+        "Cause not clearly identified";
+      const testPreview = (
+        structuredReport?.recommendedResolution?.testsToConsider || []
+      )
+        .slice(0, 2)
+        .join(", ");
+
+      const uploads = selectedFiles.map((f) => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+      }));
+
+      const ai = {
+        model: "gemini-1.5-flash",
+        summary:
+          structuredReport?.summary ||
+          "AI triage completed. Please consult a doctor for confirmation.",
+        urgency: structuredReport?.urgency || "moderate",
+        recommendedDoctor:
+          structuredReport?.recommendedSpecialist || "General Physician",
+        keyPoints: [
+          `Top possibility: ${topCondition}`,
+          `Likely cause: ${topCause}`,
+          `Emergency level: ${structuredReport?.emergencyAssessment?.level || "moderate"}`,
+          `Tests: ${testPreview || "No specific tests suggested"}`,
+        ],
+        report: structuredReport,
+      };
+
+      const created = createAnalysisCase({
+        session,
+        form,
+        uploads,
+        ai,
+        doctorFlow: {
+          status: "not_started",
+          doctorName: "",
+          etaMinutes: null,
+          returnAt: "",
+          timeline: [],
         },
-      ],
-    });
+        chat: [
+          {
+            id: makeChatId(),
+            role: "ai",
+            text: `I analyzed your details. ${ai.summary}`,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
 
-    setActiveCase(created);
-    refresh();
-    setSubmitting(false);
+      setActiveCase(created);
+      setChatOpen(true);
+      setReportOpen(false);
+      refresh();
+    } catch (err) {
+      setAnalysisError(err?.message || "Failed to generate AI diagnosis");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const onSendChat = async () => {
@@ -232,7 +295,12 @@ export default function PatientAnalysisPage({ session }) {
   };
 
   const onConnectDoctor = () => {
-    if (!activeCase || connectingDoctor || currentStatus === "accepted_by_doctor") return;
+    if (
+      !activeCase ||
+      connectingDoctor ||
+      currentStatus === "accepted_by_doctor"
+    )
+      return;
 
     setConnectingDoctor(true);
 
@@ -243,15 +311,18 @@ export default function PatientAnalysisPage({ session }) {
     setTimeout(() => updateStatus("waiting_for_doctor"), 3000);
 
     setTimeout(() => {
-      const doctorName = randomDoctors[Math.floor(Math.random() * randomDoctors.length)];
+      const doctorName =
+        randomDoctors[Math.floor(Math.random() * randomDoctors.length)];
       const etaMinutes = 20 + Math.floor(Math.random() * 31);
-      const returnAt = new Date(Date.now() + etaMinutes * 60 * 1000).toISOString();
+      const returnAt = new Date(
+        Date.now() + etaMinutes * 60 * 1000,
+      ).toISOString();
 
       updateStatus("accepted_by_doctor", { doctorName, etaMinutes, returnAt });
 
       appendChat(
         "ai",
-        `Doctor accepted your case: ${doctorName}. Approx wait time is ${etaMinutes} minutes. Please come back after ${formatDateTime(returnAt)}.`
+        `Doctor accepted your case: ${doctorName}. Approx wait time is ${etaMinutes} minutes. Please come back after ${formatDateTime(returnAt)}.`,
       );
 
       setConnectingDoctor(false);
@@ -264,8 +335,8 @@ export default function PatientAnalysisPage({ session }) {
       <div className="pointer-events-none absolute -right-20 top-0 h-80 w-80 rounded-full bg-emerald-300/25 blur-[130px]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[radial-gradient(#2f78d9_1px,transparent_1px)] bg-size-[24px_24px]" />
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 pb-10 pt-24 sm:px-6 sm:pt-28">
-        <motion.div
+      <div className="relative mx-auto w-full max-w-7xl px-4 pb-10 pt-8 sm:px-6 sm:pt-10">
+        <Motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: easeSmooth }}
@@ -273,8 +344,10 @@ export default function PatientAnalysisPage({ session }) {
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">VedaAI Core Flow</p>
-              <h1 className="mt-1 bg-gradient-to-r from-slate-900 via-blue-800 to-emerald-700 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                VedaAI Core Flow
+              </p>
+              <h1 className="mt-1 bg-linear-to-r from-slate-900 via-blue-800 to-emerald-700 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
                 Analysis + AI Chat + Doctor Connect
               </h1>
             </div>
@@ -289,30 +362,49 @@ export default function PatientAnalysisPage({ session }) {
               </button>
 
               <button
+                type="button"
+                onClick={() => setChatOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                  chatOpen
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                <MessageCircle size={14} />
+                {chatOpen ? "Hide Chat" : "AI Chat"}
+              </button>
+
+              <button
                 onClick={onConnectDoctor}
-                disabled={!activeCase || connectingDoctor || currentStatus === "accepted_by_doctor"}
+                disabled={
+                  !activeCase ||
+                  connectingDoctor ||
+                  currentStatus === "accepted_by_doctor"
+                }
                 className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
               >
                 <Stethoscope size={14} />
                 {currentStatus === "accepted_by_doctor"
                   ? "Doctor Connected"
                   : connectingDoctor
-                  ? "Connecting..."
-                  : "Connect to Doctor"}
+                    ? "Connecting..."
+                    : "Connect to Doctor"}
               </button>
             </div>
           </div>
-        </motion.div>
+        </Motion.div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1.02fr_0.98fr]">
-          <motion.form
+          <Motion.form
             onSubmit={onSubmit}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.02, ease: easeSmooth }}
             className="rounded-3xl border border-white/70 bg-white/75 p-4 shadow-[0_22px_55px_-35px_rgba(15,23,42,0.45)] backdrop-blur-2xl sm:p-5"
           >
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Patient Intake</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Patient Intake
+            </p>
             <p className="mt-1 text-sm text-slate-600">
               Submit required details once. AI creates summary and chat context.
             </p>
@@ -320,13 +412,17 @@ export default function PatientAnalysisPage({ session }) {
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 value={form.age}
-                onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, age: e.target.value }))
+                }
                 placeholder="Age"
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
               />
               <select
                 value={form.gender}
-                onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, gender: e.target.value }))
+                }
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
               >
                 <option value="">Gender</option>
@@ -339,7 +435,9 @@ export default function PatientAnalysisPage({ session }) {
             <input
               required
               value={form.symptoms}
-              onChange={(e) => setForm((p) => ({ ...p, symptoms: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, symptoms: e.target.value }))
+              }
               placeholder="Main symptom / concern"
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
@@ -347,7 +445,9 @@ export default function PatientAnalysisPage({ session }) {
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <select
                 value={form.duration}
-                onChange={(e) => setForm((p) => ({ ...p, duration: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, duration: e.target.value }))
+                }
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
               >
                 <option>Less than 24h</option>
@@ -357,13 +457,17 @@ export default function PatientAnalysisPage({ session }) {
               </select>
 
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs text-slate-500">Severity: {form.severity}/10</p>
+                <p className="text-xs text-slate-500">
+                  Severity: {form.severity}/10
+                </p>
                 <input
                   type="range"
                   min="1"
                   max="10"
                   value={form.severity}
-                  onChange={(e) => setForm((p) => ({ ...p, severity: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, severity: Number(e.target.value) }))
+                  }
                   className="w-full"
                 />
               </div>
@@ -371,21 +475,27 @@ export default function PatientAnalysisPage({ session }) {
 
             <input
               value={form.medications}
-              onChange={(e) => setForm((p) => ({ ...p, medications: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, medications: e.target.value }))
+              }
               placeholder="Current medications (optional)"
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
             <input
               value={form.allergies}
-              onChange={(e) => setForm((p) => ({ ...p, allergies: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, allergies: e.target.value }))
+              }
               placeholder="Allergies (optional)"
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
             <textarea
               value={form.notes}
-              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, notes: e.target.value }))
+              }
               placeholder="Additional details"
               className="mt-3 min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
@@ -398,7 +508,9 @@ export default function PatientAnalysisPage({ session }) {
                 multiple
                 accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                 className="hidden"
-                onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+                onChange={(e) =>
+                  setSelectedFiles(Array.from(e.target.files || []))
+                }
               />
             </label>
 
@@ -415,22 +527,34 @@ export default function PatientAnalysisPage({ session }) {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              <Sparkles size={14} />
-              {submitting ? "Analyzing..." : "Generate AI Summary"}
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Sparkles size={14} />
+                {submitting ? "Analyzing..." : "Generate AI Diagnosis"}
+              </button>
+            </div>
+
+            {analysisError ? (
+              <p className="mt-3 text-sm font-medium text-red-600">
+                {analysisError}
+              </p>
+            ) : null}
 
             {activeCase?.ai && (
               <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-blue-700">AI Snapshot</p>
-                <p className="mt-1 text-sm text-slate-700">{activeCase.ai.summary}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
+                  AI Snapshot
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {activeCase.ai.summary}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
-                    Urgency: {activeCase.ai.urgency}
+                    Urgency: {String(activeCase.ai.urgency || "").toUpperCase()}
                   </span>
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
                     {activeCase.ai.recommendedDoctor}
@@ -438,124 +562,201 @@ export default function PatientAnalysisPage({ session }) {
                 </div>
               </div>
             )}
-          </motion.form>
+          </Motion.form>
 
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.05, ease: easeSmooth }}
             className="rounded-3xl border border-white/70 bg-white/75 p-4 shadow-[0_22px_55px_-35px_rgba(15,23,42,0.45)] backdrop-blur-2xl sm:p-5"
           >
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">AI Conversation</p>
-                <p className="text-sm text-slate-600">
-                  Chat with AI before doctor handoff.
+            {submitting ? (
+              <div className="flex h-full min-h-130 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-4 text-center">
+                <Triangle
+                  visible={true}
+                  height="80"
+                  width="80"
+                  color="#4fa94d"
+                  ariaLabel="triangle-loading"
+                  wrapperStyle={{}}
+                  wrapperClass=""
+                />
+                <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">
+                  AI Conversation
                 </p>
+                <motion.p
+                  key={loadingTextIndex}
+                  initial={{ opacity: 0.2, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, ease: easeSmooth }}
+                  className="mt-2 text-sm font-semibold text-slate-700"
+                >
+                  {LOADING_TEXTS[loadingTextIndex]}
+                </motion.p>
               </div>
+            ) : chatOpen ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      AI Conversation
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      Chat with AI before doctor handoff.
+                    </p>
+                  </div>
 
-              <button
-                onClick={onConnectDoctor}
-                disabled={!activeCase || connectingDoctor || currentStatus === "accepted_by_doctor"}
-                className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-              >
-                <Stethoscope size={13} />
-                Connect to Doctor
-              </button>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {STATUS_STEPS.map((step, i) => {
-                const done = currentStatusIndex >= i;
-                return (
-                  <span
-                    key={step}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                      done
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border-slate-200 bg-white text-slate-500"
-                    }`}
-                  >
-                    {done ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
-                    {STATUS_LABEL[step]}
-                  </span>
-                );
-              })}
-            </div>
-
-            {activeCase?.doctorFlow?.status === "accepted_by_doctor" && (
-              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                Doctor: {activeCase.doctorFlow.doctorName} • ETA: {activeCase.doctorFlow.etaMinutes} mins • Come back after {formatDateTime(activeCase.doctorFlow.returnAt)}
-              </div>
-            )}
-
-            <div className="mt-4 h-[430px] overflow-y-auto rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-3">
-              {!activeCase ? (
-                <div className="grid h-full place-items-center text-center text-sm text-slate-500">
-                  Submit intake details to start AI chat.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {(activeCase.chat || []).map((msg) => {
-                    const isAi = msg.role === "ai";
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex ${isAi ? "justify-start" : "justify-end"}`}
+                  <div className="flex items-center gap-2">
+                    {activeCase?.ai?.report ? (
+                      <button
+                        type="button"
+                        onClick={() => setReportOpen(true)}
+                        className="inline-flex items-center cursor-pointer gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]"
                       >
-                        <div
-                          className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
-                            isAi
-                              ? "border border-slate-200 bg-white text-slate-700"
-                              : "bg-slate-900 text-white"
-                          }`}
-                        >
-                          <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
-                            {isAi ? <Bot size={11} /> : <UserRound size={11} />}
-                            {isAi ? "AI" : "You"}
-                          </div>
-                          <p>{msg.text}</p>
-                        </div>
-                      </div>
+                        <Eye size={13} />
+                        View Reports
+                      </button>
+                    ) : null}
+
+                    <button
+                      onClick={onConnectDoctor}
+                      disabled={
+                        !activeCase ||
+                        connectingDoctor ||
+                        currentStatus === "accepted_by_doctor"
+                      }
+                      className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                    >
+                      <Stethoscope size={13} />
+                      Connect to Doctor
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {STATUS_STEPS.map((step, i) => {
+                    const done = currentStatusIndex >= i;
+                    return (
+                      <span
+                        key={step}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                          done
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-white text-slate-500"
+                        }`}
+                      >
+                        {done ? (
+                          <CheckCircle2 size={12} />
+                        ) : (
+                          <Clock3 size={12} />
+                        )}
+                        {STATUS_LABEL[step]}
+                      </span>
                     );
                   })}
                 </div>
-              )}
-            </div>
 
-            <div className="mt-3 flex gap-2">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    onSendChat();
-                  }
-                }}
-                disabled={!activeCase}
-                placeholder={activeCase ? "Ask AI anything about your case..." : "Submit intake to enable chat"}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none disabled:bg-slate-50"
-              />
-              <button
-                onClick={onSendChat}
-                disabled={!activeCase || !chatInput.trim()}
-                className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-              >
-                <Send size={13} />
-                Send
-              </button>
-            </div>
-          </motion.div>
+                {activeCase?.doctorFlow?.status === "accepted_by_doctor" && (
+                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                    Doctor: {activeCase.doctorFlow.doctorName} • ETA:{" "}
+                    {activeCase.doctorFlow.etaMinutes} mins • Come back after{" "}
+                    {formatDateTime(activeCase.doctorFlow.returnAt)}
+                  </div>
+                )}
+
+                <div className="mt-4 h-107.5 overflow-y-auto rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-3">
+                  {!activeCase ? (
+                    <div className="grid h-full place-items-center text-center text-sm text-slate-500">
+                      Submit intake details to start AI chat.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(activeCase.chat || []).map((msg) => {
+                        const isAi = msg.role === "ai";
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex ${isAi ? "justify-start" : "justify-end"}`}
+                          >
+                            <div
+                              className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                                isAi
+                                  ? "border border-slate-200 bg-white text-slate-700"
+                                  : "bg-slate-900 text-white"
+                              }`}
+                            >
+                              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                                {isAi ? (
+                                  <Bot size={11} />
+                                ) : (
+                                  <UserRound size={11} />
+                                )}
+                                {isAi ? "AI" : "You"}
+                              </div>
+                              <p>{msg.text}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        onSendChat();
+                      }
+                    }}
+                    disabled={!activeCase}
+                    placeholder={
+                      activeCase
+                        ? "Ask AI anything about your case..."
+                        : "Submit intake to enable chat"
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none disabled:bg-slate-50"
+                  />
+                  <button
+                    onClick={onSendChat}
+                    disabled={!activeCase || !chatInput.trim()}
+                    className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    <Send size={13} />
+                    Send
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full min-h-130 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-4 text-center">
+                {activeCase?.ai?.report ? (
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    className="mb-3 inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]"
+                  >
+                    <Eye size={13} />
+                    View Reports
+                  </button>
+                ) : null}
+                <MessageCircle size={30} className="text-slate-400" />
+              </div>
+            )}
+          </Motion.div>
         </div>
 
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.08, ease: easeSmooth }}
           className="mt-4 rounded-3xl border border-white/70 bg-white/75 p-4 shadow-[0_22px_55px_-35px_rgba(15,23,42,0.45)] backdrop-blur-2xl sm:p-5"
         >
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Recent Analysis Cases</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            Recent Analysis Cases
+          </p>
           {!history.length ? (
             <p className="mt-2 text-sm text-slate-500">No history yet.</p>
           ) : (
@@ -580,8 +781,169 @@ export default function PatientAnalysisPage({ session }) {
               ))}
             </div>
           )}
-        </motion.div>
+        </Motion.div>
       </div>
+
+      {reportOpen && activeCase?.ai?.report ? (
+        <div className="fixed inset-0 z-160 grid place-items-center bg-slate-900/45 p-4 backdrop-blur-sm">
+          <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                  AI Structured Report
+                </p>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {activeCase.form?.symptoms || "Patient analysis"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setReportOpen(false)}
+                className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(88vh-68px)] space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Summary
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {activeCase.ai.report.summary}
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Possible Conditions
+                </p>
+                <div className="mt-2 space-y-2">
+                  {(
+                    activeCase.ai.report.conditionAnalysis
+                      ?.possibleConditions || []
+                  ).map((item) => (
+                    <div
+                      key={`${item.name}-${item.likelihood}`}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-2.5"
+                    >
+                      <p className="text-sm font-semibold text-slate-900">
+                        {item.name}
+                      </p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">
+                        Likelihood: {item.likelihood}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {item.whyItFits}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                    Possible Causes
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                    {(
+                      activeCase.ai.report.conditionAnalysis?.possibleCauses ||
+                      []
+                    ).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                    Emergency Assessment
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-rose-700">
+                    Level:{" "}
+                    {String(
+                      activeCase.ai.report.emergencyAssessment?.level ||
+                        "moderate",
+                    ).toUpperCase()}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {activeCase.ai.report.emergencyAssessment?.why}
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                    {(
+                      activeCase.ai.report.emergencyAssessment?.redFlags || []
+                    ).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Resolution Plan
+                </p>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Immediate Steps
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                  {(
+                    activeCase.ai.report.recommendedResolution
+                      ?.immediateSteps || []
+                  ).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Home Care
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                  {(
+                    activeCase.ai.report.recommendedResolution?.homeCare || []
+                  ).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Tests To Consider
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                  {(
+                    activeCase.ai.report.recommendedResolution
+                      ?.testsToConsider || []
+                  ).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Specialists To Consult
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
+                  {(
+                    activeCase.ai.report.recommendedResolution
+                      ?.specialistsToConsult || []
+                  ).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+
+                <p className="mt-3 text-sm text-slate-700">
+                  <span className="font-semibold">Follow up:</span>{" "}
+                  {activeCase.ai.report.recommendedResolution?.followUpWindow}
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                {activeCase.ai.report.disclaimer}
+              </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
