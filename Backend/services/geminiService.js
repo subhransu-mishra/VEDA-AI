@@ -20,7 +20,7 @@ const getGenAI = () => {
  */
 export const analyzeWithGemini = async (prompt) => {
   const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
   const result = await model.generateContent(prompt);
   return result.response.text();
 };
