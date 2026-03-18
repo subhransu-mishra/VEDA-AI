@@ -11,7 +11,9 @@ const makeId = () =>
 const readJson = (key, fallback) => {
   if (!canUseStorage()) return fallback;
   try {
-    const parsed = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+    const parsed = JSON.parse(
+      localStorage.getItem(key) || JSON.stringify(fallback),
+    );
     return parsed ?? fallback;
   } catch {
     return fallback;
@@ -28,20 +30,22 @@ export const getAnalysisCasesForPatient = (patientEmail = "") => {
   const filtered = patientEmail
     ? all.filter(
         (row) =>
-          (row.patientEmail || "").toLowerCase() === patientEmail.toLowerCase()
+          (row.patientEmail || "").toLowerCase() === patientEmail.toLowerCase(),
       )
     : all;
 
   return filtered.sort(
     (a, b) =>
       new Date(b.updatedAt || b.createdAt).getTime() -
-      new Date(a.updatedAt || a.createdAt).getTime()
+      new Date(a.updatedAt || a.createdAt).getTime(),
   );
 };
 
 export const createAnalysisCase = ({
   session,
   form,
+  backendCaseId = null,
+  backendPublicCaseId = "",
   uploads = [],
   ai,
   doctorFlow,
@@ -56,6 +60,8 @@ export const createAnalysisCase = ({
     createdAt: now,
     updatedAt: now,
     form,
+    backendCaseId,
+    backendPublicCaseId,
     uploads,
     ai,
     doctorFlow,

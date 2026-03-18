@@ -1,6 +1,24 @@
 import { extractTextFromPdf } from "../../services/pdfExtractor.js";
 import { extractTextFromImage } from "../../services/ocrExtractor.js";
 import { analyzeWithGemini } from "../../services/geminiService.js";
+import Case from "../../models/Case.js";
+import { getAllowedSpecialists } from "../../services/specialistService.js";
+
+const generateCaseId = () => {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `CASE-${ts}-${rand}`;
+};
+
+const generateUniqueCaseId = async () => {
+  let caseId = generateCaseId();
+
+  while (await Case.exists({ caseId })) {
+    caseId = generateCaseId();
+  }
+
+  return caseId;
+};
 
 // ─── Prompt Builder ───────────────────────────────────────────────────────────
 
@@ -10,28 +28,60 @@ const buildMedicalPrompt = ({
   reportText,
 }) => `You are a clinical AI triage assistant.
 
-Use the provided patient profile, current symptom intake, and uploaded report text to generate a concise, structured triage report.
+Your goal is to analyze patient data and generate a structured, practical medical triage report.
 
-Patient Profile (from signup):
+Use:
+- Patient profile
+- Current symptom intake
+- Uploaded medical report text (if available)
+
+----------------------------
+PATIENT PROFILE
+----------------------------
 ${JSON.stringify(patientProfile, null, 2)}
 
-Current Intake:
+----------------------------
+CURRENT INTAKE
+----------------------------
 ${JSON.stringify(intake, null, 2)}
 
-Medical Report Text:
+----------------------------
+MEDICAL REPORT TEXT
+----------------------------
 ${reportText || "No report text available"}
 
-Instructions:
-1. Keep the report practical and easy to understand.
-2. Explain what the likely disease/condition can be and why it may have happened.
-3. Explain what the patient should do to resolve/manage this.
-4. Mention which specialist(s) to consult.
-5. Provide emergency level and red-flag warning signs.
-6. Include suggested diagnostic tests.
-7. Do not claim a definitive diagnosis unless clearly supported.
+----------------------------
+INSTRUCTIONS
+----------------------------
+1. Keep the report concise, structured, and easy to understand.
+2. Suggest likely conditions with reasoning (not definitive diagnosis).
+3. Explain possible causes clearly.
+4. Recommend practical next steps.
+5. Identify the MOST RELEVANT PRIMARY SPECIALIST for this case.
+6. Also include additional specialists if needed.
+7. Provide urgency level and red-flag symptoms.
+8. Suggest useful diagnostic tests.
+9. Avoid unnecessary medical jargon.
 
-IMPORTANT:
-Return ONLY valid JSON, with this exact top-level structure:
+----------------------------
+CRITICAL RULES
+----------------------------
+- ALWAYS return valid JSON (no markdown, no extra text).
+- DO NOT include explanations outside JSON.
+- Ensure all fields are present even if empty.
+- Keep values short and structured.
+- "primary_specialist" MUST be ONE of the predefined categories.
+
+----------------------------
+SPECIALIST NORMALIZATION
+----------------------------
+Use ONLY one of the following values for "primary_specialist":
+
+["general_physician", "dermatologist", "cardiologist", "neurologist", "orthopedic", "gastroenterologist", "endocrinologist", "psychiatrist", "pulmonologist", "ent_specialist"]
+
+----------------------------
+OUTPUT FORMAT (STRICT JSON)
+----------------------------
 {
   "condition_analysis": {
     "possible_conditions": [
@@ -49,6 +99,7 @@ Return ONLY valid JSON, with this exact top-level structure:
     "home_care": [""],
     "tests_to_consider": [""],
     "specialists_to_consult": [""],
+    "primary_specialist": "",
     "follow_up_window": ""
   },
   "emergency_assessment": {
@@ -57,8 +108,17 @@ Return ONLY valid JSON, with this exact top-level structure:
     "red_flags": [""]
   },
   "summary": "",
+  "confidence_score": 0,
   "disclaimer": ""
-}`;
+}
+
+----------------------------
+IMPORTANT NOTES
+----------------------------
+- "primary_specialist" must be a single string from the allowed list.
+- "specialists_to_consult" can contain multiple human-readable names.
+- "confidence_score" should be between 0 and 1.
+`;
 
 // ─── Safe JSON Parser ─────────────────────────────────────────────────────────
 
@@ -160,6 +220,18 @@ const normalizeAnalysis = (raw) => {
     String(raw?.recommended_resolution?.follow_up_window || "").trim() ||
     "Follow up within 24-72 hours or sooner if symptoms worsen.";
 
+  const primarySpecialistRaw = String(
+    raw?.recommended_resolution?.primary_specialist || "general_physician",
+  )
+    .trim()
+    .toLowerCase();
+
+  const allowedSpecialists = getAllowedSpecialists();
+
+  const primarySpecialist = allowedSpecialists.includes(primarySpecialistRaw)
+    ? primarySpecialistRaw
+    : "general_physician";
+
   const emergencyLevel = normalizeEmergencyLevel(
     raw?.emergency_assessment?.level,
   );
@@ -191,6 +263,7 @@ const normalizeAnalysis = (raw) => {
       homeCare,
       testsToConsider,
       specialistsToConsult,
+      primarySpecialist,
       followUpWindow,
     },
     emergencyAssessment: {
@@ -333,7 +406,21 @@ export const analyzeCase = async (req, res) => {
     }
 
     // ── Step 5: Return the structured analysis ─────────────────────────────────
+    const caseId = await generateUniqueCaseId();
+
+    const createdCase = await Case.create({
+      caseId,
+      patientId: req.patient._id,
+      aiAnalysis: analysis,
+      status: "ai_completed",
+    });
+
     return res.status(200).json({
+      case: {
+        _id: createdCase._id,
+        caseId: createdCase.caseId,
+        status: createdCase.status,
+      },
       analysis,
       intake,
       patientProfile,

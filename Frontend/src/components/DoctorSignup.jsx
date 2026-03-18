@@ -10,6 +10,19 @@ const phoneRegex = /^\d{10}$/;
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const licenseRegex = /^[A-Za-z0-9-]{6,}$/;
 
+const SPECIALIZATION_OPTIONS = [
+  { value: "general_physician", label: "General Physician" },
+  { value: "dermatologist", label: "Dermatologist" },
+  { value: "cardiologist", label: "Cardiologist" },
+  { value: "neurologist", label: "Neurologist" },
+  { value: "orthopedic", label: "Orthopedic" },
+  { value: "gastroenterologist", label: "Gastroenterologist" },
+  { value: "endocrinologist", label: "Endocrinologist" },
+  { value: "psychiatrist", label: "Psychiatrist" },
+  { value: "pulmonologist", label: "Pulmonologist" },
+  { value: "ent_specialist", label: "ENT Specialist" },
+];
+
 const containerVariants = {
   hidden: {},
   show: {
@@ -76,7 +89,7 @@ export default function DoctorSignup({ onSignup }) {
       next.confirmPassword = "Passwords do not match.";
     }
     if (!form.specialization.trim())
-      next.specialization = "Enter specialization.";
+      next.specialization = "Select specialization.";
     if (!licenseRegex.test(form.licenseNumber.trim())) {
       next.licenseNumber = "License number must be at least 6 characters.";
     }
@@ -130,7 +143,7 @@ export default function DoctorSignup({ onSignup }) {
         fullName: form.fullName.trim(),
         email: response.doctor.email,
         phone: form.phone.trim(),
-        specialization: form.specialization.trim(),
+        specialization: response.doctor.specialization,
         licenseNumber: form.licenseNumber.trim(),
         hospitalName: form.hospitalName.trim(),
         experienceYears: Number(form.experienceYears),
@@ -278,13 +291,19 @@ export default function DoctorSignup({ onSignup }) {
 
             <motion.div variants={itemVariants}>
               <label className={labelClass}>Specialization</label>
-              <input
+              <select
                 name="specialization"
                 value={form.specialization}
                 onChange={onChange}
-                placeholder="Cardiology, Dermatology..."
                 className={inputClass}
-              />
+              >
+                <option value="">Select specialization</option>
+                {SPECIALIZATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               {errors.specialization && (
                 <p className={errorClass}>{errors.specialization}</p>
               )}
