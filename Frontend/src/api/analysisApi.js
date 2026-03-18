@@ -29,4 +29,62 @@ export const analysisApi = {
       throw new Error(extractErrorMessage(error, "Case analysis failed"));
     }
   },
+
+  async getMatchedDoctors({
+    token,
+    caseId,
+    specialist = "",
+    onlyAvailable = true,
+  }) {
+    try {
+      const { data } = await api.get(`/doctors/match/${caseId}`, {
+        params: {
+          onlyAvailable,
+          ...(specialist ? { specialist } : {}),
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return data;
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, "Doctor matching failed"));
+    }
+  },
+
+  async createConsultation({ token, caseId, doctorId }) {
+    try {
+      const payload = { caseId };
+      if (doctorId) payload.doctorId = doctorId;
+
+      const { data } = await api.post("/consultation/create", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return data;
+    } catch (error) {
+      throw new Error(
+        extractErrorMessage(error, "Consultation creation failed"),
+      );
+    }
+  },
+
+  async getConsultationById({ token, consultationId }) {
+    try {
+      const { data } = await api.get(`/consultation/${consultationId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return data;
+    } catch (error) {
+      throw new Error(
+        extractErrorMessage(error, "Failed to fetch consultation"),
+      );
+    }
+  },
 };

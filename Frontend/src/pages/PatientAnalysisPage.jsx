@@ -28,17 +28,19 @@ const easeSmooth = [0.22, 1, 0.36, 1];
 const Motion = motion;
 
 const STATUS_STEPS = [
-  "creating_report",
-  "sending_to_doctor",
-  "waiting_for_doctor",
-  "accepted_by_doctor",
+  "ai_completed",
+  "doctor_requested",
+  "doctor_assigned",
+  "consultation_active",
+  "completed",
 ];
 
 const STATUS_LABEL = {
-  creating_report: "Creating report",
-  sending_to_doctor: "Sending to doctor",
-  waiting_for_doctor: "Waiting for doctor",
-  accepted_by_doctor: "Accepted by doctor",
+  ai_completed: "AI completed",
+  doctor_requested: "Doctor requested",
+  doctor_assigned: "Doctor assigned",
+  consultation_active: "Consultation active",
+  completed: "Completed",
 };
 
 const LOADING_TEXTS = [
@@ -47,8 +49,6 @@ const LOADING_TEXTS = [
   "Building your structured medical report...",
   "Preparing specialist recommendation...",
 ];
-
-const randomDoctors = ["Dr. Mehta", "Dr. Ananya", "Dr. Sharma", "Dr. Rao"];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -78,6 +78,11 @@ const aiFollowUp = (text, ai) => {
 
 const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString() : "");
 
+const extractPrimarySpecialist = (report) =>
+  report?.recommendedResolution?.primarySpecialist ||
+  report?.recommended_resolution?.primary_specialist ||
+  "";
+
 export default function PatientAnalysisPage({ session }) {
   const navigate = useNavigate();
 
@@ -102,6 +107,11 @@ export default function PatientAnalysisPage({ session }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
+  const [matchedDoctors, setMatchedDoctors] = useState([]);
+  const [matchedSpecialistLabel, setMatchedSpecialistLabel] = useState("");
+  const [consultationLoading, setConsultationLoading] = useState(false);
+  const [consultationError, setConsultationError] = useState("");
+  const [consultationInfo, setConsultationInfo] = useState(null);
 
   const history = useMemo(() => {
     void refreshTick;
@@ -110,6 +120,11 @@ export default function PatientAnalysisPage({ session }) {
 
   const currentStatus = activeCase?.doctorFlow?.status || "not_started";
   const currentStatusIndex = STATUS_STEPS.indexOf(currentStatus);
+  const isDoctorAssigned = [
+    "doctor_assigned",
+    "consultation_active",
+    "completed",
+  ].includes(currentStatus);
 
   useEffect(() => {
     if (!submitting) {
@@ -167,6 +182,7 @@ export default function PatientAnalysisPage({ session }) {
 
     setActiveCase(updated);
     refresh();
+    return updated;
   };
 
   const onSubmit = async (e) => {
@@ -250,17 +266,28 @@ export default function PatientAnalysisPage({ session }) {
         report: structuredReport,
       };
 
+      const primarySpecialist = extractPrimarySpecialist(structuredReport);
+
       const created = createAnalysisCase({
         session,
         form,
+        backendCaseId: response?.case?._id || null,
+        backendPublicCaseId: response?.case?.caseId || "",
         uploads,
         ai,
         doctorFlow: {
-          status: "not_started",
+          status: response?.case?.status || "ai_completed",
+          specialist: primarySpecialist,
+          specialistLabel: response?.specialistLabel || "",
           doctorName: "",
-          etaMinutes: null,
-          returnAt: "",
-          timeline: [],
+          consultationId: "",
+          timeline: [
+            {
+              status: response?.case?.status || "ai_completed",
+              label: STATUS_LABEL[response?.case?.status || "ai_completed"],
+              at: new Date().toISOString(),
+            },
+          ],
         },
         chat: [
           {
@@ -275,6 +302,10 @@ export default function PatientAnalysisPage({ session }) {
       setActiveCase(created);
       setChatOpen(true);
       setReportOpen(false);
+      setMatchedDoctors([]);
+      setMatchedSpecialistLabel("");
+      setConsultationInfo(null);
+      setConsultationError("");
       refresh();
     } catch (err) {
       setAnalysisError(err?.message || "Failed to generate AI diagnosis");
@@ -294,39 +325,118 @@ export default function PatientAnalysisPage({ session }) {
     appendChat("ai", aiFollowUp(text, activeCase.ai));
   };
 
-  const onConnectDoctor = () => {
+  const onConnectDoctor = async () => {
     if (
       !activeCase ||
       connectingDoctor ||
-      currentStatus === "accepted_by_doctor"
+      consultationLoading ||
+      isDoctorAssigned
     )
       return;
 
+    if (!session?.token) {
+      setConsultationError(
+        "Session expired. Please log in again to continue consultation.",
+      );
+      return;
+    }
+
+    const caseIdentifier =
+      activeCase.backendCaseId || activeCase.backendPublicCaseId;
+
+    if (!caseIdentifier) {
+      setConsultationError("Case ID missing. Please regenerate AI diagnosis.");
+      return;
+    }
+
+    const specialist =
+      extractPrimarySpecialist(activeCase?.ai?.report) ||
+      activeCase?.doctorFlow?.specialist ||
+      "";
+
     setConnectingDoctor(true);
+    setConsultationError("");
+    setMatchedDoctors([]);
+    setMatchedSpecialistLabel("");
 
-    // TODO(BACKEND): POST /api/analysis/:id/connect-doctor
-    // TODO(BACKEND): stream queue status with SSE/WebSocket
-    updateStatus("creating_report");
-    setTimeout(() => updateStatus("sending_to_doctor"), 1200);
-    setTimeout(() => updateStatus("waiting_for_doctor"), 3000);
+    try {
+      const response = await analysisApi.getMatchedDoctors({
+        token: session.token,
+        caseId: caseIdentifier,
+        specialist,
+      });
 
-    setTimeout(() => {
-      const doctorName =
-        randomDoctors[Math.floor(Math.random() * randomDoctors.length)];
-      const etaMinutes = 20 + Math.floor(Math.random() * 31);
-      const returnAt = new Date(
-        Date.now() + etaMinutes * 60 * 1000,
-      ).toISOString();
+      const doctors = response?.doctors || [];
+      setMatchedDoctors(doctors);
+      setMatchedSpecialistLabel(response?.specialistLabel || "");
+      updateStatus("doctor_requested", {
+        matchedDoctors: doctors,
+        specialist: response?.primarySpecialist || specialist,
+        specialistLabel: response?.specialistLabel || "",
+      });
 
-      updateStatus("accepted_by_doctor", { doctorName, etaMinutes, returnAt });
+      if (!doctors.length) {
+        setConsultationError(
+          "No verified doctors available for this specialist right now.",
+        );
+      }
+    } catch (err) {
+      setConsultationError(err?.message || "Failed to fetch matching doctors");
+    } finally {
+      setConnectingDoctor(false);
+    }
+  };
+
+  const onCreateConsultation = async (doctorId) => {
+    const caseIdentifier =
+      activeCase?.backendCaseId || activeCase?.backendPublicCaseId;
+
+    if (!caseIdentifier || !session?.token) return;
+
+    setConsultationLoading(true);
+    setConsultationError("");
+
+    try {
+      const createResponse = await analysisApi.createConsultation({
+        token: session.token,
+        caseId: caseIdentifier,
+        doctorId,
+      });
+
+      const consultationId = createResponse?.consultation?._id;
+      let doctorName =
+        matchedDoctors.find(
+          (doc) => doc._id === createResponse?.consultation?.doctorId,
+        )?.name || "Assigned Doctor";
+
+      if (consultationId) {
+        const consultationResponse = await analysisApi.getConsultationById({
+          token: session.token,
+          consultationId,
+        });
+        const detail = consultationResponse?.consultation || null;
+        if (detail?.doctorId?.fullName) {
+          doctorName = detail.doctorId.fullName;
+        }
+        setConsultationInfo(detail);
+      }
+
+      updateStatus("doctor_assigned", {
+        doctorName,
+        consultationId: consultationId || "",
+      });
 
       appendChat(
         "ai",
-        `Doctor accepted your case: ${doctorName}. Approx wait time is ${etaMinutes} minutes. Please come back after ${formatDateTime(returnAt)}.`,
+        `Consultation request created successfully. Doctor assigned: ${doctorName}.`,
       );
 
-      setConnectingDoctor(false);
-    }, 5600);
+      setMatchedDoctors([]);
+    } catch (err) {
+      setConsultationError(err?.message || "Failed to create consultation");
+    } finally {
+      setConsultationLoading(false);
+    }
   };
 
   return (
@@ -379,15 +489,16 @@ export default function PatientAnalysisPage({ session }) {
                 disabled={
                   !activeCase ||
                   connectingDoctor ||
-                  currentStatus === "accepted_by_doctor"
+                  consultationLoading ||
+                  isDoctorAssigned
                 }
-                className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                className="inline-flex items-center cursor-pointer gap-1 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
               >
                 <Stethoscope size={14} />
-                {currentStatus === "accepted_by_doctor"
+                {isDoctorAssigned
                   ? "Doctor Connected"
                   : connectingDoctor
-                    ? "Connecting..."
+                    ? "Finding doctors..."
                     : "Connect to Doctor"}
               </button>
             </div>
@@ -623,12 +734,15 @@ export default function PatientAnalysisPage({ session }) {
                       disabled={
                         !activeCase ||
                         connectingDoctor ||
-                        currentStatus === "accepted_by_doctor"
+                        consultationLoading ||
+                        isDoctorAssigned
                       }
-                      className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                      className="inline-flex items-center cursor-pointer  gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                     >
                       <Stethoscope size={13} />
-                      Connect to Doctor
+                      {connectingDoctor
+                        ? "Finding doctors..."
+                        : "Connect to Doctor"}
                     </button>
                   </div>
                 </div>
@@ -656,13 +770,88 @@ export default function PatientAnalysisPage({ session }) {
                   })}
                 </div>
 
-                {activeCase?.doctorFlow?.status === "accepted_by_doctor" && (
+                {currentStatus === "doctor_assigned" && (
                   <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                    Doctor: {activeCase.doctorFlow.doctorName} • ETA:{" "}
-                    {activeCase.doctorFlow.etaMinutes} mins • Come back after{" "}
-                    {formatDateTime(activeCase.doctorFlow.returnAt)}
+                    Doctor Assigned:{" "}
+                    {activeCase?.doctorFlow?.doctorName || "Pending"}
+                    {activeCase?.doctorFlow?.consultationId
+                      ? ` • Consultation ID: ${activeCase.doctorFlow.consultationId}`
+                      : ""}
                   </div>
                 )}
+
+                {!!matchedDoctors.length && !consultationLoading && (
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                          Select a Doctor
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Specialist:{" "}
+                          {matchedSpecialistLabel ||
+                            activeCase?.doctorFlow?.specialistLabel ||
+                            activeCase?.doctorFlow?.specialist ||
+                            "General Physician"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onCreateConsultation()}
+                        className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700"
+                      >
+                        Auto-Assign
+                      </button>
+                    </div>
+
+                    <div className="mt-2 space-y-2">
+                      {matchedDoctors.map((doctor) => (
+                        <div
+                          key={doctor._id}
+                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {doctor.name}
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              {doctor.specializationLabel ||
+                                doctor.specialization}{" "}
+                              • {doctor.experience} yrs • Cases handled{" "}
+                              {doctor.casesHandled ?? 0} • Rating{" "}
+                              {doctor.rating ?? 0}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onCreateConsultation(doctor._id)}
+                            className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white"
+                          >
+                            Select
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {consultationLoading ? (
+                  <p className="mt-3 text-sm font-medium text-blue-700">
+                    Creating consultation request...
+                  </p>
+                ) : null}
+
+                {consultationError ? (
+                  <p className="mt-3 text-sm font-medium text-red-600">
+                    {consultationError}
+                  </p>
+                ) : null}
+
+                {consultationInfo?.status ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Consultation status: {consultationInfo.status}
+                  </p>
+                ) : null}
 
                 <div className="mt-4 h-107.5 overflow-y-auto rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-3">
                   {!activeCase ? (
@@ -764,7 +953,15 @@ export default function PatientAnalysisPage({ session }) {
               {history.map((row) => (
                 <button
                   key={row.id}
-                  onClick={() => setActiveCase(row)}
+                  onClick={() => {
+                    setActiveCase(row);
+                    setMatchedDoctors(row?.doctorFlow?.matchedDoctors || []);
+                    setMatchedSpecialistLabel(
+                      row?.doctorFlow?.specialistLabel || "",
+                    );
+                    setConsultationInfo(null);
+                    setConsultationError("");
+                  }}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
                 >
                   <p className="text-sm font-semibold text-slate-900 line-clamp-1">

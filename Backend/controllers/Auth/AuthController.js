@@ -2,6 +2,10 @@ import Doctor from "../../Schema/doctorSchema.js";
 import Patient from "../../Schema/patientSchema.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import {
+  getAllowedSpecialists,
+  normalizeSpecialist,
+} from "../../services/specialistService.js";
 
 const generateCandidateId = (prefix) => {
   const timestampPart = Date.now().toString(36).toUpperCase();
@@ -32,13 +36,17 @@ const formatDoctorAuthResponse = (doctor) => ({
 // ─── Doctor Signup ───────────────────────────────────────────────────────────
 export const doctorSignup = async (req, res) => {
   try {
+    const rawSpecialization = String(req.body?.specialization || "").trim();
+
+    const normalizedSpecialization = normalizeSpecialist(rawSpecialization);
+
     const payload = {
       fullName: String(req.body?.fullName || "").trim(),
       email: String(req.body?.email || "")
         .trim()
         .toLowerCase(),
       password: String(req.body?.password || ""),
-      specialization: String(req.body?.specialization || "").trim(),
+      specialization: normalizedSpecialization,
       experience: Number(req.body?.experience),
       phoneNumber: String(req.body?.phoneNumber || "").trim(),
       clinicAddress: String(req.body?.clinicAddress || "").trim(),
@@ -47,20 +55,32 @@ export const doctorSignup = async (req, res) => {
       city: String(req.body?.city || "").trim(),
     };
 
-    // Validate required fields
-    if (
-      !payload.fullName ||
-      !payload.email ||
-      !payload.password ||
-      !payload.specialization ||
-      Number.isNaN(payload.experience) ||
-      !payload.phoneNumber ||
-      !payload.clinicAddress ||
-      !payload.licenseNumber ||
-      !payload.clinicName ||
-      !payload.city
-    ) {
-      return res.status(400).json({ message: "All fields are required" });
+    // Validate required fields using raw input values.
+    // Specialization is validated separately so unsupported values return a precise message.
+    const missingFields = [];
+    if (!payload.fullName) missingFields.push("fullName");
+    if (!payload.email) missingFields.push("email");
+    if (!payload.password) missingFields.push("password");
+    if (!rawSpecialization) missingFields.push("specialization");
+    if (Number.isNaN(payload.experience)) missingFields.push("experience");
+    if (!payload.phoneNumber) missingFields.push("phoneNumber");
+    if (!payload.clinicAddress) missingFields.push("clinicAddress");
+    if (!payload.licenseNumber) missingFields.push("licenseNumber");
+    if (!payload.clinicName) missingFields.push("clinicName");
+    if (!payload.city) missingFields.push("city");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: "All fields are required",
+        missingFields,
+      });
+    }
+
+    if (!normalizedSpecialization) {
+      return res.status(400).json({
+        message: "Unsupported specialization",
+        allowedSpecializations: getAllowedSpecialists(),
+      });
     }
 
     if (!Number.isFinite(payload.experience) || payload.experience < 0) {
