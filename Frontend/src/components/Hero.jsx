@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
 const avatars = [
   { name: "Aarav", initials: "AR", image: "/rimg1.jpg" },
@@ -11,9 +12,6 @@ const avatars = [
 ];
 
 const easeSmooth = [0.22, 1, 0.36, 1];
-const helperText =
-  "Some patients find it difficult to talk openly about sensitive health concerns. VedaAI helps them express symptoms more comfortably.";
-const mobileHelperText = "Private support for sensitive symptoms.";
 
 export default function Hero({
   onOpenLogin = () => {},
@@ -22,6 +20,10 @@ export default function Hero({
   isLoggedIn = false,
   session = null,
 }) {
+  const { t } = useTranslation();
+  const tr = (key, defaultValue, options = {}) =>
+    t(key, { defaultValue, ...options });
+
   const [showMessage, setShowMessage] = useState(false);
   const [typedText, setTypedText] = useState("");
 
@@ -37,6 +39,12 @@ export default function Hero({
   useEffect(() => {
     if (!showMessage) return;
 
+    const helperText = tr(
+      "hero.helperText",
+      "Some patients find it difficult to talk openly about sensitive health concerns. VedaAI helps them express symptoms more comfortably.",
+    );
+
+    setTypedText("");
     let index = 0;
     const typeTimer = setInterval(() => {
       index += 1;
@@ -45,7 +53,7 @@ export default function Hero({
     }, 18);
 
     return () => clearInterval(typeTimer);
-  }, [showMessage]);
+  }, [showMessage, t]);
 
   return (
     <section
@@ -64,7 +72,7 @@ export default function Hero({
             className="glass-panel mx-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-medium uppercase tracking-[0.24em] text-[var(--color-primary)] sm:text-sm"
           >
             <span className="h-2 w-2 rounded-full bg-[#5b9fff]" />
-            AI healthcare for everyone
+            {tr("hero.badge", "AI healthcare for everyone")}
           </motion.div>
 
           <motion.h1
@@ -73,9 +81,9 @@ export default function Hero({
             transition={{ duration: 1.05, delay: 0.06, ease: easeSmooth }}
             className="mx-auto mt-8 max-w-3xl text-[3rem] font-semibold leading-[0.9] tracking-[-0.09em] text-[var(--color-text)] sm:text-[4.8rem] lg:text-[6rem]"
           >
-            Better care.
+            {tr("hero.titleLine1", "Better care.")}
             <br />
-            Less confusion.
+            {tr("hero.titleLine2", "Less confusion.")}
           </motion.h1>
 
           <motion.p
@@ -84,8 +92,10 @@ export default function Hero({
             transition={{ duration: 1.05, delay: 0.14, ease: easeSmooth }}
             className="mx-auto mt-6 max-w-lg px-2 text-[0.95rem] leading-7 text-[var(--color-text-muted)] sm:text-[1.05rem]"
           >
-            VedaAI helps patients understand symptoms, organize reports, and
-            reach the right care path with clarity.
+            {tr(
+              "hero.subtitle",
+              "VedaAI helps patients understand symptoms, organize reports, and reach the right care path with clarity.",
+            )}
           </motion.p>
 
           {!isLoggedIn && (
@@ -100,14 +110,14 @@ export default function Hero({
                 onClick={onOpenLogin}
                 className="btn-secondary px-5 py-3 text-sm font-semibold"
               >
-                Login
+                {tr("hero.login", "Login")}
               </button>
               <button
                 type="button"
                 onClick={onOpenSignup}
                 className="btn-primary px-5 py-3 text-sm font-semibold"
               >
-                Sign up
+                {tr("hero.signUp", "Sign up")}
               </button>
             </motion.div>
           )}
@@ -124,31 +134,66 @@ export default function Hero({
                 onClick={onGetStarted}
                 className="btn-primary px-6 py-3 text-sm font-semibold"
               >
-                Get Started
+                {tr("common.getStarted", "Get Started")}
               </button>
             </motion.div>
           )}
         </div>
 
         {showMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.65, ease: easeSmooth }}
-            className="absolute bottom-30 left-1/2 w-full max-w-[260px] -translate-x-1/2 lg:hidden"
-          >
-            <div className="relative overflow-hidden rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(255,255,255,0.46))] px-4 py-3 shadow-[0_18px_42px_-28px_rgba(47,120,217,0.35)] backdrop-blur-xl">
-              <div className="mb-1.5 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#ff8e8e] shadow-[0_0_8px_rgba(255,124,124,0.8)]" />
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5f4a3f]">
-                  Sensitive Care
-                </p>
+          <>
+            <motion.div
+              initial={{ opacity: 0, x: -22, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.55, ease: easeSmooth }}
+              className="absolute bottom-18 left-0 hidden w-full max-w-[270px] lg:block"
+            >
+              <div className="glass-panel rounded-[24px] px-4 py-3 shadow-[0_20px_45px_-28px_rgba(31,51,74,0.45)]">
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#5b9fff] shadow-[0_0_10px_rgba(91,159,255,0.55)]" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                      {tr("hero.sensitiveCare", "Sensitive Care")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-semibold leading-5 text-[var(--color-text)]">
+                      {tr(
+                        "hero.mobileHelperText",
+                        "Private support for sensitive symptoms.",
+                      )}
+                    </p>
+                    <p className="mt-2 min-h-[54px] text-[12px] leading-5 text-[var(--color-text-muted)]">
+                      {typedText}
+                      <span className="ml-1 inline-block h-3.5 w-[2px] animate-pulse bg-[var(--color-primary)] align-middle opacity-75" />
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p className="text-[12px] leading-5 text-[#4f433b]">
-                {mobileHelperText}
-              </p>
-            </div>
-          </motion.div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: -14, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.5, ease: easeSmooth }}
+              className="absolute bottom-26 left-4 right-4 max-w-[220px] lg:hidden"
+            >
+              <div className="glass-panel rounded-[22px] px-3.5 py-3 shadow-[0_16px_34px_-24px_rgba(31,51,74,0.45)]">
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#5b9fff] shadow-[0_0_8px_rgba(91,159,255,0.5)]" />
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-primary)]">
+                      {tr("hero.sensitiveCare", "Sensitive Care")}
+                    </p>
+                    <p className="mt-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
+                      {tr(
+                        "hero.mobileHelperText",
+                        "Private support for sensitive symptoms.",
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
 
         <motion.div
@@ -184,42 +229,10 @@ export default function Hero({
               ))}
             </div>
             <p className="text-sm font-semibold text-[var(--color-text)] sm:text-base">
-              100+ happy clients
+              {tr("hero.happyClients", "100+ happy clients")}
             </p>
           </div>
         </motion.div>
-
-        {showMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.75, ease: easeSmooth }}
-            className="absolute left-0 top-90 hidden w-full max-w-[290px] lg:block"
-          >
-            <div className="relative overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.58)] bg-[linear-gradient(135deg,rgba(108,86,71,0.18),rgba(255,255,255,0.34))] px-5 py-5 shadow-[0_22px_55px_-30px_rgba(76,54,40,0.22)] backdrop-blur-[22px]">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_30%)]" />
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.88),transparent)]" />
-
-              <div className="relative">
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inset-0 rounded-full bg-[#ff7c7c] blur-[4px] opacity-90" />
-                    <span className="relative h-2.5 w-2.5 rounded-full bg-[#ff8e8e]" />
-                  </span>
-
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6a5143]/80">
-                    Sensitive
-                  </p>
-                </div>
-
-                <p className="text-[13px] leading-6 text-[#4f433b]">
-                  {typedText}
-                  <span className="ml-0.5 inline-block h-4 w-[1px] animate-pulse bg-[#7b5f49] align-middle" />
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
     </section>
   );
