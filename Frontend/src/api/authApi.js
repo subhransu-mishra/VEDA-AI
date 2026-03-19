@@ -9,6 +9,15 @@ const extractErrorMessage = (error, fallbackMessage) => {
 };
 
 export const authApi = {
+  async adminLogin(payload) {
+    try {
+      const { data } = await api.post("/auth/admin/login", payload);
+      return data;
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, "Admin login failed"));
+    }
+  },
+
   async patientSignup(payload) {
     try {
       const { data } = await api.post("/auth/patient/signup", payload);

@@ -1,18 +1,19 @@
 // Login.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { authApi } from "../api/authApi";
+import {
+  createSession,
+  findDoctorCacheByEmail,
+  persistSession,
+  upsertDoctorCache,
+  upsertPatientCache,
+} from "../utils/authStorage";
 
-const DOCTORS_KEY = "veda_doctors";
-const PATIENTS_KEY = "veda_patients";
-const SESSION_KEY = "veda_session";
-
-const readList = (key) => {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
-};
+const ADMIN_CREDENTIALS = [
+  { email: "admin@vedaai.com", password: "Admin@123" },
+  { email: "review@vedaai.com", password: "Review@123" },
+];
 
 export default function Login({ onLogin }) {
   const navigate = useNavigate();
@@ -23,38 +24,111 @@ export default function Login({ onLogin }) {
     password: "",
   });
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onChange = (e) => {
     setError("");
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
 
     const email = form.email.trim().toLowerCase();
-    const list = form.role === "doctor" ? readList(DOCTORS_KEY) : readList(PATIENTS_KEY);
+    const password = form.password;
 
-    const user = list.find(
-      (u) => u.email.toLowerCase() === email && u.password === form.password
-    );
+    setIsSubmitting(true);
 
-    if (!user) {
-      setError("Invalid credentials for selected role.");
-      return;
+    try {
+      if (form.role === "doctor") {
+        const isAdminAttempt = ADMIN_CREDENTIALS.some(
+          (admin) => admin.email === email && admin.password === password,
+        );
+
+        if (isAdminAttempt) {
+          const response = await authApi.adminLogin({ email, password });
+
+          const session = {
+            id: response.admin.id,
+            role: "admin",
+            name: response.admin.name,
+            email: response.admin.email,
+            token: response.token,
+            loggedInAt: new Date().toISOString(),
+          };
+
+          persistSession(session);
+          onLogin?.(session);
+          navigate("/admin/verification");
+          return;
+        }
+
+        const response = await authApi.doctorLogin({ email, password });
+        const existingDoctor = findDoctorCacheByEmail(email);
+
+        const cachedDoctor = upsertDoctorCache({
+          id: response.doctor.id,
+          doctorId: response.doctor.doctorId,
+          role: "doctor",
+          fullName: existingDoctor?.fullName || response.doctor.fullName,
+          email: response.doctor.email,
+          phone: existingDoctor?.phone || "",
+          specialization:
+            existingDoctor?.specialization || response.doctor.specialization,
+          licenseNumber: existingDoctor?.licenseNumber || "",
+          hospitalName: existingDoctor?.hospitalName || "",
+          experienceYears: existingDoctor?.experienceYears || 0,
+          clinicAddress: existingDoctor?.clinicAddress || "",
+          city: existingDoctor?.city || "",
+          verificationStatus:
+            response.doctor.verificationStatus ||
+            existingDoctor?.verificationStatus ||
+            "not_submitted",
+          verificationReviewReason:
+            response.doctor.verificationReviewReason ||
+            existingDoctor?.verificationReviewReason ||
+            "",
+        });
+
+        const session = createSession({
+          user: response.doctor,
+          role: "doctor",
+          token: response.token,
+          fallbackFields: {
+            verificationStatus: cachedDoctor.verificationStatus,
+          },
+        });
+
+        persistSession(session);
+        onLogin?.(session);
+        navigate(
+          cachedDoctor.verificationStatus === "verified"
+            ? "/dashboard/doctor"
+            : "/doctor/verification",
+        );
+        return;
+      }
+
+      const response = await authApi.patientLogin({ email, password });
+      upsertPatientCache({
+        ...response.patient,
+        role: "patient",
+      });
+
+      const session = createSession({
+        user: response.patient,
+        role: "patient",
+        token: response.token,
+      });
+
+      persistSession(session);
+      onLogin?.(session);
+      navigate("/dashboard/patient");
+    } catch (submitError) {
+      setError(submitError.message || "Invalid credentials for selected role.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const session = {
-      id: user.id,
-      role: form.role,
-      name: user.fullName,
-      email: user.email,
-      loggedInAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    onLogin?.(session);
-    navigate("/");
   };
 
   return (
@@ -63,9 +137,15 @@ export default function Login({ onLogin }) {
       <div className="pointer-events-none absolute -right-20 bottom-6 h-80 w-80 rounded-full bg-[#68B2A0]/20 blur-3xl" />
 
       <section className="relative mx-auto w-full max-w-md rounded-[28px] border border-white/60 bg-white/50 p-6 shadow-[0_30px_100px_-40px_rgba(35,95,168,0.55)] backdrop-blur-2xl sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2F78D9]">VedaAI</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#17363D]">Login</h1>
-        <p className="mt-1 text-sm text-[#667D86]">Access your secure healthcare dashboard</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2F78D9]">
+          VedaAI
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#17363D]">
+          Login
+        </h1>
+        <p className="mt-1 text-sm text-[#667D86]">
+          Access your secure healthcare dashboard
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/70 bg-white/45 p-1.5">
@@ -113,13 +193,16 @@ export default function Login({ onLogin }) {
             className="w-full rounded-xl border border-white/70 bg-white/70 px-4 py-3 text-[#17363D] outline-none placeholder:text-[#88a1ad] focus:border-[#2F78D9]"
           />
 
-          {error ? <p className="text-sm font-medium text-red-500">{error}</p> : null}
+          {error ? (
+            <p className="text-sm font-medium text-red-500">{error}</p>
+          ) : null}
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full rounded-xl bg-[linear-gradient(135deg,#2F78D9,#245fb0)] px-4 py-3 font-semibold text-white transition hover:brightness-105"
           >
-            Login
+            {isSubmitting ? "Logging in..." : "Login"}
           </button>
         </form>
 

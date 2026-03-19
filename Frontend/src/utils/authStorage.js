@@ -22,7 +22,10 @@ export const createSession = ({ user, role, token, fallbackFields = {} }) => ({
   email: user.email,
   patientId: user.patientId,
   doctorId: user.doctorId,
-  verificationStatus: fallbackFields.verificationStatus,
+  verificationStatus:
+    fallbackFields.verificationStatus ||
+    user.verificationStatus ||
+    "not_submitted",
   loggedInAt: new Date().toISOString(),
 });
 
@@ -52,6 +55,50 @@ export const upsertDoctorCache = (doctor) => {
   writeList(DOCTORS_KEY, nextDoctors);
   window.dispatchEvent(new Event("veda:doctor-updated"));
   return nextDoctor;
+};
+
+export const updateDoctorVerificationCache = ({
+  email,
+  doctorId,
+  verificationStatus,
+  verificationReviewReason,
+  emitEvent = true,
+}) => {
+  const doctors = readList(DOCTORS_KEY);
+  let hasChanged = false;
+
+  const nextDoctors = doctors.map((doctor) => {
+    const byEmail =
+      email &&
+      doctor.email?.toLowerCase() === String(email).trim().toLowerCase();
+    const byDoctorId = doctorId && String(doctor.id) === String(doctorId);
+
+    if (!byEmail && !byDoctorId) {
+      return doctor;
+    }
+
+    const nextDoctor = {
+      ...doctor,
+      verificationStatus:
+        verificationStatus || doctor.verificationStatus || "not_submitted",
+      verificationReviewReason:
+        verificationReviewReason ?? doctor.verificationReviewReason ?? "",
+    };
+
+    if (
+      nextDoctor.verificationStatus !== doctor.verificationStatus ||
+      nextDoctor.verificationReviewReason !== doctor.verificationReviewReason
+    ) {
+      hasChanged = true;
+    }
+
+    return nextDoctor;
+  });
+
+  writeList(DOCTORS_KEY, nextDoctors);
+  if (emitEvent && hasChanged) {
+    window.dispatchEvent(new Event("veda:doctor-updated"));
+  }
 };
 
 export const findDoctorCacheByEmail = (email) => {

@@ -249,7 +249,7 @@ function AppInner() {
       navigate(
         doctorVerificationStatus === "verified"
           ? "/dashboard/doctor"
-          : "/doctor/verification"
+          : "/doctor/verification",
       );
       return;
     }
@@ -364,7 +364,7 @@ function AppInner() {
             path="/admin/verification"
             element={
               <ProtectedAdmin session={session}>
-                <AdminVerificationPanel />
+                <AdminVerificationPanel session={session} />
               </ProtectedAdmin>
             }
           />

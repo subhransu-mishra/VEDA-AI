@@ -31,7 +31,51 @@ const formatDoctorAuthResponse = (doctor) => ({
   fullName: doctor.fullName,
   email: doctor.email,
   specialization: doctor.specialization,
+  isVerified: doctor.isVerified,
+  verificationStatus: doctor.verificationStatus,
+  verificationReviewReason: doctor.verificationReviewReason,
 });
+
+const DEFAULT_ADMIN_CREDENTIALS = [
+  {
+    email: "admin@vedaai.com",
+    password: "Admin@123",
+    name: "Super Admin",
+  },
+  {
+    email: "review@vedaai.com",
+    password: "Review@123",
+    name: "Verification Admin",
+  },
+];
+
+const readAdminCredentials = () => {
+  const raw = process.env.ADMIN_CREDENTIALS_JSON;
+  if (!raw) {
+    return DEFAULT_ADMIN_CREDENTIALS;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return DEFAULT_ADMIN_CREDENTIALS;
+    }
+
+    const normalized = parsed
+      .map((admin) => ({
+        email: String(admin?.email || "")
+          .trim()
+          .toLowerCase(),
+        password: String(admin?.password || ""),
+        name: String(admin?.name || "Admin").trim() || "Admin",
+      }))
+      .filter((admin) => admin.email && admin.password);
+
+    return normalized.length ? normalized : DEFAULT_ADMIN_CREDENTIALS;
+  } catch {
+    return DEFAULT_ADMIN_CREDENTIALS;
+  }
+};
 
 // ─── Doctor Signup ───────────────────────────────────────────────────────────
 export const doctorSignup = async (req, res) => {
@@ -175,6 +219,49 @@ export const doctorLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("Doctor Login Error:", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const adminLogin = async (req, res) => {
+  try {
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    const password = String(req.body?.password || "");
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
+    }
+
+    const admin = readAdminCredentials().find(
+      (candidate) =>
+        candidate.email === email && candidate.password === password,
+    );
+
+    if (!admin) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const token = jwt.sign(
+      { userId: admin.email, role: "admin" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" },
+    );
+
+    return res.status(200).json({
+      message: "Admin login successful",
+      token,
+      admin: {
+        id: admin.email,
+        name: admin.name,
+        email: admin.email,
+      },
+    });
+  } catch (error) {
+    console.error("Admin Login Error:", error.message);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };

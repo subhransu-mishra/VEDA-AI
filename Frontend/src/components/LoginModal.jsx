@@ -88,19 +88,29 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
       );
 
       if (adminMatch) {
-        const adminSession = {
-          id: `admin-${adminMatch.email}`,
-          role: "admin",
-          name: adminMatch.name,
-          email: adminMatch.email,
-          loggedInAt: new Date().toISOString(),
-        };
+        try {
+          const response = await authApi.adminLogin({ email, password });
 
-        resetAuthFields("doctor");
-        onLogin?.(adminSession);
-        toast.success("Admin login successful");
-        navigate("/admin/verification");
-        return;
+          const adminSession = {
+            id: response.admin.id,
+            role: "admin",
+            name: response.admin.name,
+            email: response.admin.email,
+            token: response.token,
+            loggedInAt: new Date().toISOString(),
+          };
+
+          resetAuthFields("doctor");
+          onLogin?.(adminSession);
+          toast.success(response.message || "Admin login successful");
+          navigate("/admin/verification");
+          return;
+        } catch (adminError) {
+          const message = adminError.message || "Admin login failed";
+          setError(message);
+          toast.error(message);
+          return;
+        }
       }
     }
 
@@ -125,9 +135,13 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
           clinicAddress: existingDoctor?.clinicAddress || "",
           city: existingDoctor?.city || "",
           verificationStatus:
-            existingDoctor?.verificationStatus || "not_submitted",
+            response.doctor.verificationStatus ||
+            existingDoctor?.verificationStatus ||
+            "not_submitted",
           verificationReviewReason:
-            existingDoctor?.verificationReviewReason || "",
+            response.doctor.verificationReviewReason ||
+            existingDoctor?.verificationReviewReason ||
+            "",
         });
 
         const nextSession = createSession({
