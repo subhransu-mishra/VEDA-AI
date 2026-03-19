@@ -29,7 +29,8 @@ import {
 } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 // Ensure this path matches your project structure
-import { reportApi } from "../api/reportApi"; 
+import { reportApi } from "../api/reportApi";
+import { doctorDashboardApi } from "../api/doctorDashboardApi";
 
 const easeSmooth = [0.22, 1, 0.36, 1];
 
@@ -38,72 +39,7 @@ const makeId = () =>
     ? crypto.randomUUID()
     : String(Date.now());
 
-/**
- * TODO(BACKEND):
- * Move mock methods to real APIs.
- */
 const doctorApi = {
-  async getDashboard() {
-    return {
-      queue: [
-        {
-          id: "C-101",
-          patientName: "Ramesh Kumar",
-          patientEmail: "ramesh@example.com",
-          complaint: "Chest tightness + breathlessness",
-          risk: "high",
-          waitMins: 14,
-          status: "queued",
-          assignedDoctor: null,
-          summary:
-            "Male, 52. Acute chest discomfort with dyspnea. Hypertension history. Needs immediate cardiopulmonary review.",
-          lastUpdate: "2m ago",
-          reportStatus: "not_generated",
-        },
-        {
-          id: "C-102",
-          patientName: "Sunita Devi",
-          patientEmail: "sunita@example.com",
-          complaint: "Lower abdominal pain (sensitive concern)",
-          risk: "medium",
-          waitMins: 28,
-          status: "queued",
-          assignedDoctor: null,
-          summary:
-            "Female, 31. Hesitation in verbal explanation. Guided intake completed; symptom details captured with better confidence.",
-          lastUpdate: "4m ago",
-          reportStatus: "not_generated",
-        },
-        {
-          id: "C-103",
-          patientName: "Ali Mohammed",
-          patientEmail: "ali@example.com",
-          complaint: "High fever + body ache",
-          risk: "low",
-          waitMins: 40,
-          status: "queued",
-          assignedDoctor: null,
-          summary:
-            "Male, 24. No major comorbidity reported. Requires symptomatic evaluation and routine follow-up.",
-          lastUpdate: "8m ago",
-          reportStatus: "not_generated",
-        },
-      ],
-      notifications: [
-        { id: "N1", text: "2 high-risk cases need urgent review.", unread: true },
-        { id: "N2", text: "New patient report added to C-101.", unread: true },
-      ],
-    };
-  },
-
-  async assignCase({ caseId, doctorName }) {
-    return { ok: true, caseId, doctorName };
-  },
-
-  async updateCaseStatus({ caseId, status }) {
-    return { ok: true, caseId, status };
-  },
-
   async generateStructuredReport({ caseItem, doctorNotes, chatMessages }) {
     const trace = chatMessages.map((m) => `${m.role}: ${m.content}`).join("\n");
 
@@ -112,8 +48,8 @@ const doctorApi = {
         caseItem.risk === "high"
           ? "Immediate"
           : caseItem.risk === "medium"
-          ? "Priority"
-          : "Routine"
+            ? "Priority"
+            : "Routine"
       }\n- Recommended pathway: ${
         caseItem.risk === "high"
           ? "Emergency specialist review"
@@ -165,20 +101,51 @@ export default function DoctorDashboard({ session, onLogout }) {
   const orbY = useTransform(scrollYProgress, [0, 1], [0, -70]);
   const orbY2 = useTransform(scrollYProgress, [0, 1], [0, -120]);
 
+  const loadDashboardData = async () => {
+    if (!session?.token) return;
+
+    try {
+      const response = await doctorDashboardApi.getAssignedRequests({
+        token: session.token,
+      });
+
+      const queue = response.items || [];
+      const highRiskCount = queue.filter((item) => item.risk === "high").length;
+
+      setQueueCases(queue);
+      setNotifications([
+        {
+          id: "N1",
+          text: `${highRiskCount} high-risk case(s) need urgent review.`,
+          unread: highRiskCount > 0,
+        },
+        {
+          id: "N2",
+          text: `${queue.length} assigned patient request(s) in your queue.`,
+          unread: queue.length > 0,
+        },
+      ]);
+    } catch (error) {
+      setToast(error.message || "Failed to load doctor dashboard");
+      setQueueCases([]);
+      setNotifications([]);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      const data = await doctorApi.getDashboard();
-      setQueueCases(data.queue);
-      setNotifications(data.notifications);
-    })();
-  }, []);
+    void loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.token]);
 
   useEffect(() => {
     const onOutsideClick = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setShowProfileMenu(false);
       }
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(e.target)
+      ) {
         setShowNotifications(false);
       }
     };
@@ -214,7 +181,7 @@ export default function DoctorDashboard({ session, onLogout }) {
 
   const myCases = useMemo(
     () => queueCases.filter((item) => item.assignedDoctor === doctorName),
-    [queueCases, doctorName]
+    [queueCases, doctorName],
   );
 
   const stats = useMemo(() => {
@@ -229,61 +196,87 @@ export default function DoctorDashboard({ session, onLogout }) {
     };
   }, [queueCases, myCases]);
 
+  const findConsultationByCaseId = (caseId) =>
+    queueCases.find((item) => item.id === caseId)?.consultationId;
+
   const assignToMe = async (caseId) => {
-    await doctorApi.assignCase({ caseId, doctorName });
-    setQueueCases((prev) =>
-      prev.map((item) =>
-        item.id === caseId
-          ? {
-              ...item,
-              assignedDoctor: doctorName,
-              status: item.status === "queued" ? "in_review" : item.status,
-              lastUpdate: "just now",
-            }
-          : item
-      )
-    );
-    setToast("Case assigned to you");
+    const consultationId = findConsultationByCaseId(caseId);
+    if (!consultationId) {
+      setToast("Consultation not found for this case");
+      return;
+    }
+
+    try {
+      await doctorDashboardApi.updateConsultationStatus({
+        token: session?.token,
+        consultationId,
+        status: "accepted",
+      });
+      await loadDashboardData();
+      setToast("Case accepted");
+    } catch (error) {
+      setToast(error.message || "Failed to accept case");
+    }
   };
 
   const unassignCase = async (caseId) => {
-    setQueueCases((prev) =>
-      prev.map((item) =>
-        item.id === caseId && item.assignedDoctor === doctorName
-          ? {
-              ...item,
-              assignedDoctor: null,
-              status: "queued",
-              lastUpdate: "just now",
-            }
-          : item
-      )
-    );
-    setToast("Case unassigned");
+    const consultationId = findConsultationByCaseId(caseId);
+    if (!consultationId) {
+      setToast("Consultation not found for this case");
+      return;
+    }
+
+    try {
+      await doctorDashboardApi.updateConsultationStatus({
+        token: session?.token,
+        consultationId,
+        status: "rejected",
+      });
+      await loadDashboardData();
+      setToast("Case unassigned");
+    } catch (error) {
+      setToast(error.message || "Failed to unassign case");
+    }
   };
 
   const markReviewed = async (caseId) => {
-    await doctorApi.updateCaseStatus({ caseId, status: "completed" });
-    setQueueCases((prev) =>
-      prev.map((item) =>
-        item.id === caseId
-          ? { ...item, status: "completed", lastUpdate: "just now" }
-          : item
-      )
-    );
-    setToast("Case marked as reviewed");
+    const consultationId = findConsultationByCaseId(caseId);
+    if (!consultationId) {
+      setToast("Consultation not found for this case");
+      return;
+    }
+
+    try {
+      await doctorDashboardApi.updateConsultationStatus({
+        token: session?.token,
+        consultationId,
+        status: "completed",
+      });
+      await loadDashboardData();
+      setToast("Case marked as reviewed");
+    } catch (error) {
+      setToast(error.message || "Failed to mark case as reviewed");
+    }
   };
 
   const escalateCase = async (caseId) => {
-    await doctorApi.updateCaseStatus({ caseId, status: "escalated" });
-    setQueueCases((prev) =>
-      prev.map((item) =>
-        item.id === caseId
-          ? { ...item, status: "escalated", lastUpdate: "just now" }
-          : item
-      )
-    );
-    setToast("Case escalated");
+    const consultationId = findConsultationByCaseId(caseId);
+    if (!consultationId) {
+      setToast("Consultation not found for this case");
+      return;
+    }
+
+    try {
+      await doctorDashboardApi.updateConsultationStatus({
+        token: session?.token,
+        consultationId,
+        status: "rejected",
+      });
+      await loadDashboardData();
+      setToast("Case escalated");
+    } catch (error) {
+      setToast(error.message || "Failed to escalate case");
+    }
   };
 
   const openReportBuilder = (caseItem) => {
@@ -340,8 +333,8 @@ export default function DoctorDashboard({ session, onLogout }) {
       prev.map((item) =>
         item.id === reportCase.id
           ? { ...item, reportStatus: "generated", lastUpdate: "just now" }
-          : item
-      )
+          : item,
+      ),
     );
 
     setIsGeneratingReport(false);
@@ -371,8 +364,8 @@ export default function DoctorDashboard({ session, onLogout }) {
         prev.map((item) =>
           item.id === reportCase.id
             ? { ...item, reportStatus: "sent", lastUpdate: "just now" }
-            : item
-        )
+            : item,
+        ),
       );
       setToast("Report sent to patient");
     } else {
@@ -438,7 +431,11 @@ export default function DoctorDashboard({ session, onLogout }) {
               key={item.id}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.35, delay: index * 0.04, ease: easeSmooth }}
+              transition={{
+                duration: 0.35,
+                delay: index * 0.04,
+                ease: easeSmooth,
+              }}
               onClick={() => handleMenuClick(item.id)}
               className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                 activeTab === item.id
@@ -512,7 +509,10 @@ export default function DoctorDashboard({ session, onLogout }) {
                     className="absolute right-0 z-[1400] mt-2 w-[90vw] max-w-sm sm:w-80 rounded-2xl border border-white/70 bg-white/95 p-3 shadow-xl backdrop-blur-xl"
                   >
                     {notifications.map((n) => (
-                      <div key={n.id} className="rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                      <div
+                        key={n.id}
+                        className="rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
                         {n.text}
                       </div>
                     ))}
@@ -542,8 +542,12 @@ export default function DoctorDashboard({ session, onLogout }) {
                     className="absolute right-0 z-[1400] mt-2 w-[90vw] max-w-xs sm:w-56 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
                   >
                     <div className="px-3 py-2 overflow-hidden">
-                      <p className="text-sm font-semibold truncate">Dr. {doctorName}</p>
-                      <p className="text-xs text-slate-500 truncate">{doctorEmail}</p>
+                      <p className="text-sm font-semibold truncate">
+                        Dr. {doctorName}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {doctorEmail}
+                      </p>
                     </div>
                     <button
                       onClick={() => {
@@ -576,8 +580,10 @@ export default function DoctorDashboard({ session, onLogout }) {
         </div>
 
         {/* Scrollable Content Area */}
-        <section ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 w-full max-w-[100vw]">
-          
+        <section
+          ref={scrollRef}
+          className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 w-full max-w-[100vw]"
+        >
           {/* TOAST NOTIFICATION */}
           <AnimatePresence>
             {toast && (
@@ -595,10 +601,31 @@ export default function DoctorDashboard({ session, onLogout }) {
           {activeTab === "Overview" && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <MetricCard title="Queued Cases" value={stats.queued} icon={Clock} index={0} />
-                <MetricCard title="Critical Alerts" value={stats.highRisk} icon={Siren} danger index={1} />
-                <MetricCard title="My Assigned" value={stats.assigned} icon={UserCheck} index={2} />
-                <MetricCard title="Completed" value={stats.completed} icon={CheckCircle2} index={3} />
+                <MetricCard
+                  title="Queued Cases"
+                  value={stats.queued}
+                  icon={Clock}
+                  index={0}
+                />
+                <MetricCard
+                  title="Critical Alerts"
+                  value={stats.highRisk}
+                  icon={Siren}
+                  danger
+                  index={1}
+                />
+                <MetricCard
+                  title="My Assigned"
+                  value={stats.assigned}
+                  icon={UserCheck}
+                  index={2}
+                />
+                <MetricCard
+                  title="Completed"
+                  value={stats.completed}
+                  icon={CheckCircle2}
+                  index={3}
+                />
               </div>
 
               <motion.div
@@ -611,28 +638,36 @@ export default function DoctorDashboard({ session, onLogout }) {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   High-Risk Priority Feed
                 </p>
-                {queueCases.filter((c) => c.risk === "high").map((c) => (
-                  <div key={c.id} className="mb-2 rounded-2xl border border-rose-200/80 bg-rose-50/70 p-3 sm:p-4">
-                    <p className="font-medium text-rose-700">
-                      {c.patientName} <span className="mx-1">•</span> {c.complaint}
-                    </p>
-                    <p className="mt-1 text-sm text-rose-600 line-clamp-2 sm:line-clamp-none">{c.summary}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => assignToMe(c.id)}
-                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
-                      >
-                        Assign to me
-                      </button>
-                      <button
-                        onClick={() => escalateCase(c.id)}
-                        className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                      >
-                        Escalate
-                      </button>
+                {queueCases
+                  .filter((c) => c.risk === "high")
+                  .map((c) => (
+                    <div
+                      key={c.id}
+                      className="mb-2 rounded-2xl border border-rose-200/80 bg-rose-50/70 p-3 sm:p-4"
+                    >
+                      <p className="font-medium text-rose-700">
+                        {c.patientName} <span className="mx-1">•</span>{" "}
+                        {c.complaint}
+                      </p>
+                      <p className="mt-1 text-sm text-rose-600 line-clamp-2 sm:line-clamp-none">
+                        {c.summary}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => assignToMe(c.id)}
+                          className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                        >
+                          Assign to me
+                        </button>
+                        <button
+                          onClick={() => escalateCase(c.id)}
+                          className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                        >
+                          Escalate
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </motion.div>
             </div>
           )}
@@ -670,18 +705,29 @@ export default function DoctorDashboard({ session, onLogout }) {
                   </thead>
                   <tbody>
                     {filteredQueue.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-100 last:border-b-0 hover:bg-white/40 transition-colors">
+                      <tr
+                        key={item.id}
+                        className="border-b border-slate-100 last:border-b-0 hover:bg-white/40 transition-colors"
+                      >
                         <td className="px-4 py-3 font-medium align-top">
                           {item.patientName}
-                          <div className="text-xs text-slate-400 mt-0.5">{item.id}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {item.id}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 max-w-xs truncate align-top">{item.complaint}</td>
+                        <td className="px-4 py-3 text-slate-600 max-w-xs truncate align-top">
+                          {item.complaint}
+                        </td>
                         <td className="px-4 py-3 align-top">
-                          <span className={`inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs whitespace-nowrap ${riskClass(item.risk)}`}>
+                          <span
+                            className={`inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs whitespace-nowrap ${riskClass(item.risk)}`}
+                          >
                             {item.risk}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap align-top">{item.waitMins}m</td>
+                        <td className="px-4 py-3 whitespace-nowrap align-top">
+                          {item.waitMins}m
+                        </td>
                         <td className="px-4 py-3 text-slate-600 align-top">
                           {item.assignedDoctor || "Unassigned"}
                         </td>
@@ -711,7 +757,10 @@ export default function DoctorDashboard({ session, onLogout }) {
                     ))}
                     {!filteredQueue.length && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                        <td
+                          colSpan={6}
+                          className="px-4 py-8 text-center text-sm text-slate-500"
+                        >
                           No cases found matching your criteria.
                         </td>
                       </tr>
@@ -733,26 +782,43 @@ export default function DoctorDashboard({ session, onLogout }) {
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="min-w-0">
-                        <p className="font-semibold truncate text-base">{item.patientName}</p>
+                        <p className="font-semibold truncate text-base">
+                          {item.patientName}
+                        </p>
                         <p className="text-xs text-slate-400">{item.id}</p>
                       </div>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${riskClass(item.risk)}`}>
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${riskClass(item.risk)}`}
+                      >
                         {item.risk}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">{item.complaint}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {item.complaint}
+                    </p>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                       <span>Wait: {item.waitMins}m</span>
-                      <span>{item.assignedDoctor ? 'Assigned' : 'Unassigned'}</span>
+                      <span>
+                        {item.assignedDoctor ? "Assigned" : "Unassigned"}
+                      </span>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <button onClick={() => assignToMe(item.id)} className="flex-1 min-w-[80px] rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                      <button
+                        onClick={() => assignToMe(item.id)}
+                        className="flex-1 min-w-[80px] rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                      >
                         Assign
                       </button>
-                      <button onClick={() => setSelectedCase(item)} className="flex-1 min-w-[80px] rounded-lg border border-slate-200 py-2 text-xs font-semibold bg-white hover:bg-slate-50">
+                      <button
+                        onClick={() => setSelectedCase(item)}
+                        className="flex-1 min-w-[80px] rounded-lg border border-slate-200 py-2 text-xs font-semibold bg-white hover:bg-slate-50"
+                      >
                         Open
                       </button>
-                      <button onClick={() => escalateCase(item.id)} className="flex-1 min-w-[80px] rounded-lg border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">
+                      <button
+                        onClick={() => escalateCase(item.id)}
+                        className="flex-1 min-w-[80px] rounded-lg border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                      >
                         Escalate
                       </button>
                     </div>
@@ -784,7 +850,10 @@ export default function DoctorDashboard({ session, onLogout }) {
           {activeTab === "My Cases" && (
             <div className="space-y-4">
               <p className="text-sm text-slate-600 bg-white/50 inline-block px-3 py-1.5 rounded-lg border border-white/60">
-                Cases assigned to <span className="font-semibold text-slate-900">Dr. {doctorName}</span>
+                Cases assigned to{" "}
+                <span className="font-semibold text-slate-900">
+                  Dr. {doctorName}
+                </span>
               </p>
 
               {!myCases.length ? (
@@ -817,31 +886,50 @@ export default function DoctorDashboard({ session, onLogout }) {
       {/* --- MODALS --- */}
       <AnimatePresence>
         {selectedCase && (
-          <ModalShell title={`Case Detail • ${selectedCase.id}`} onClose={() => setSelectedCase(null)}>
+          <ModalShell
+            title={`Case Detail • ${selectedCase.id}`}
+            onClose={() => setSelectedCase(null)}
+          >
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{selectedCase.patientName}</h3>
-                <p className="text-sm text-slate-500">{selectedCase.patientEmail}</p>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {selectedCase.patientName}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {selectedCase.patientEmail}
+                </p>
               </div>
               <div className="rounded-2xl bg-white p-4 border border-slate-100 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Primary Complaint</p>
-                <p className="text-sm font-medium text-slate-800">{selectedCase.complaint}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Primary Complaint
+                </p>
+                <p className="text-sm font-medium text-slate-800">
+                  {selectedCase.complaint}
+                </p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 shadow-inner">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">AI Summary Assessment</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  AI Summary Assessment
+                </p>
                 <p className="text-sm leading-relaxed text-slate-700">
                   {selectedCase.summary}
                 </p>
               </div>
               <div className="pt-4 flex flex-wrap gap-2 border-t border-slate-100">
                 <button
-                  onClick={() => { assignToMe(selectedCase.id); setSelectedCase(null); }}
+                  onClick={() => {
+                    assignToMe(selectedCase.id);
+                    setSelectedCase(null);
+                  }}
                   className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
                 >
                   Assign to me
                 </button>
                 <button
-                  onClick={() => { openReportBuilder(selectedCase); setSelectedCase(null); }}
+                  onClick={() => {
+                    openReportBuilder(selectedCase);
+                    setSelectedCase(null);
+                  }}
                   className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Generate AI Report
@@ -854,9 +942,12 @@ export default function DoctorDashboard({ session, onLogout }) {
 
       <AnimatePresence>
         {reportCase && (
-          <ModalShell title={`AI Report Assistant • ${reportCase.id}`} onClose={() => setReportCase(null)} wide>
+          <ModalShell
+            title={`AI Report Assistant • ${reportCase.id}`}
+            onClose={() => setReportCase(null)}
+            wide
+          >
             <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] h-full">
-              
               {/* Left Column: Chat Area */}
               <div className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50/50 p-2 sm:p-4 h-[50vh] lg:h-[70vh]">
                 <p className="mb-3 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
@@ -869,9 +960,9 @@ export default function DoctorDashboard({ session, onLogout }) {
                     <div
                       key={m.id}
                       className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
-                        m.role === 'doctor' 
-                          ? 'bg-blue-600 text-white ml-auto rounded-tr-sm' 
-                          : 'bg-slate-100 text-slate-700 mr-auto rounded-tl-sm'
+                        m.role === "doctor"
+                          ? "bg-blue-600 text-white ml-auto rounded-tr-sm"
+                          : "bg-slate-100 text-slate-700 mr-auto rounded-tl-sm"
                       }`}
                     >
                       {m.content}
@@ -889,7 +980,7 @@ export default function DoctorDashboard({ session, onLogout }) {
                     placeholder="Type clinical notes..."
                     className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none"
                   />
-                  <button 
+                  <button
                     onClick={sendChatMessage}
                     className="flex shrink-0 items-center justify-center rounded-xl bg-blue-600 p-2 text-white hover:bg-blue-700 transition-colors w-10 h-10"
                   >
@@ -900,52 +991,63 @@ export default function DoctorDashboard({ session, onLogout }) {
 
               {/* Right Column: Report Viewer */}
               <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 h-[50vh] lg:h-[70vh]">
-                 <div className="flex items-center justify-between mb-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                      Generated Report
-                    </p>
-                    {generatedReport && (
-                      <button onClick={copyReport} className="text-slate-400 hover:text-blue-600 transition-colors p-1" title="Copy Report">
-                        <Copy size={16} />
-                      </button>
-                    )}
-                 </div>
-
-                 <div className="flex-1 overflow-y-auto rounded-xl bg-slate-50 border border-slate-100 p-4">
-                    {isGeneratingReport ? (
-                      <div className="flex h-full flex-col items-center justify-center text-slate-400 space-y-3">
-                        <Sparkles size={24} className="animate-pulse text-blue-500" />
-                        <p className="text-sm font-medium animate-pulse">Synthesizing clinical data...</p>
-                      </div>
-                    ) : generatedReport ? (
-                      <pre className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-slate-700">
-                        {generatedReport}
-                      </pre>
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-slate-400 text-center px-4 space-y-2">
-                        <FileText size={24} className="opacity-30" />
-                        <p className="text-xs">Provide notes in the chat, then click generate below.</p>
-                      </div>
-                    )}
-                 </div>
-
-                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                    Generated Report
+                  </p>
+                  {generatedReport && (
                     <button
-                      onClick={generateReport}
-                      disabled={isGeneratingReport}
-                      className="flex-1 rounded-xl bg-slate-900 py-3 text-xs font-semibold text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+                      onClick={copyReport}
+                      className="text-slate-400 hover:text-blue-600 transition-colors p-1"
+                      title="Copy Report"
                     >
-                      {generatedReport ? "Regenerate" : "Generate Report"}
+                      <Copy size={16} />
                     </button>
-                    {generatedReport && (
-                      <button
-                        onClick={sendReportToPatient}
-                        className="flex-1 rounded-xl bg-emerald-600 py-3 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
-                      >
-                        Send to Patient
-                      </button>
-                    )}
-                 </div>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto rounded-xl bg-slate-50 border border-slate-100 p-4">
+                  {isGeneratingReport ? (
+                    <div className="flex h-full flex-col items-center justify-center text-slate-400 space-y-3">
+                      <Sparkles
+                        size={24}
+                        className="animate-pulse text-blue-500"
+                      />
+                      <p className="text-sm font-medium animate-pulse">
+                        Synthesizing clinical data...
+                      </p>
+                    </div>
+                  ) : generatedReport ? (
+                    <pre className="whitespace-pre-wrap font-sans text-xs sm:text-sm text-slate-700">
+                      {generatedReport}
+                    </pre>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center text-slate-400 text-center px-4 space-y-2">
+                      <FileText size={24} className="opacity-30" />
+                      <p className="text-xs">
+                        Provide notes in the chat, then click generate below.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={generateReport}
+                    disabled={isGeneratingReport}
+                    className="flex-1 rounded-xl bg-slate-900 py-3 text-xs font-semibold text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    {generatedReport ? "Regenerate" : "Generate Report"}
+                  </button>
+                  {generatedReport && (
+                    <button
+                      onClick={sendReportToPatient}
+                      className="flex-1 rounded-xl bg-emerald-600 py-3 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+                    >
+                      Send to Patient
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </ModalShell>
@@ -954,17 +1056,30 @@ export default function DoctorDashboard({ session, onLogout }) {
 
       <AnimatePresence>
         {showLogoutConfirm && (
-          <ModalShell title="Confirm Logout" onClose={() => setShowLogoutConfirm(false)}>
+          <ModalShell
+            title="Confirm Logout"
+            onClose={() => setShowLogoutConfirm(false)}
+          >
             <div className="py-4 text-center">
               <ShieldAlert size={40} className="mx-auto mb-4 text-rose-500" />
-              <p className="text-base font-medium text-slate-800">Are you sure you want to end your session?</p>
-              <p className="mt-2 text-sm text-slate-500 px-4">You will need to re-authenticate to access patient triage data.</p>
+              <p className="text-base font-medium text-slate-800">
+                Are you sure you want to end your session?
+              </p>
+              <p className="mt-2 text-sm text-slate-500 px-4">
+                You will need to re-authenticate to access patient triage data.
+              </p>
             </div>
             <div className="mt-6 flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
                 Cancel
               </button>
-              <button onClick={onLogout} className="flex-1 rounded-xl bg-rose-600 py-3 text-sm font-semibold text-white hover:bg-rose-700 transition-colors">
+              <button
+                onClick={onLogout}
+                className="flex-1 rounded-xl bg-rose-600 py-3 text-sm font-semibold text-white hover:bg-rose-700 transition-colors"
+              >
                 Yes, Sign Out
               </button>
             </div>
@@ -986,19 +1101,35 @@ function MetricCard({ title, value, icon: Icon, danger, index }) {
       className="flex flex-col justify-between rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:p-6"
     >
       <div className="flex items-center justify-between mb-4">
-        <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl ${danger ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>
+        <div
+          className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl ${danger ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"}`}
+        >
           <Icon size={20} className="sm:w-6 sm:h-6" />
         </div>
       </div>
       <div>
-        <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{value}</h3>
-        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 mt-1">{title}</p>
+        <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+          {value}
+        </h3>
+        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 mt-1">
+          {title}
+        </p>
       </div>
     </motion.div>
   );
 }
 
-function CaseCard({ item, index, isAssignedToCurrent, onOpen, onAssign, onUnassign, onGenerate, onReviewed, onEscalate }) {
+function CaseCard({
+  item,
+  index,
+  isAssignedToCurrent,
+  onOpen,
+  onAssign,
+  onUnassign,
+  onGenerate,
+  onReviewed,
+  onEscalate,
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -1010,44 +1141,70 @@ function CaseCard({ item, index, isAssignedToCurrent, onOpen, onAssign, onUnassi
       <div className="border-b border-slate-100 p-4 sm:p-5">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h4 className="font-semibold text-slate-900 truncate">{item.patientName}</h4>
+            <h4 className="font-semibold text-slate-900 truncate">
+              {item.patientName}
+            </h4>
             <p className="text-xs text-slate-500">{item.id}</p>
           </div>
-          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${riskClass(item.risk)}`}>
+          <span
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${riskClass(item.risk)}`}
+          >
             {item.risk}
           </span>
         </div>
         <p className="text-sm text-slate-700 line-clamp-2">{item.complaint}</p>
       </div>
-      
+
       <div className="bg-slate-50/50 p-4 sm:p-5 flex-1 flex flex-col justify-end">
         <div className="mb-4 flex items-center justify-between text-xs text-slate-500">
-          <span className="flex items-center gap-1"><Clock size={12}/> {item.waitMins}m wait</span>
-          <span className="font-medium px-2 py-0.5 rounded-md bg-white border border-slate-200">{item.status.replace('_', ' ')}</span>
+          <span className="flex items-center gap-1">
+            <Clock size={12} /> {item.waitMins}m wait
+          </span>
+          <span className="font-medium px-2 py-0.5 rounded-md bg-white border border-slate-200">
+            {item.status.replace("_", " ")}
+          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           {isAssignedToCurrent ? (
             <>
-              <button onClick={onGenerate} className="col-span-2 rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
+              <button
+                onClick={onGenerate}
+                className="col-span-2 rounded-xl bg-blue-600 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+              >
                 AI Assistant
               </button>
-              <button onClick={onOpen} className="rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              <button
+                onClick={onOpen}
+                className="rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
                 Details
               </button>
-              <button onClick={onReviewed} className="rounded-xl border border-emerald-200 bg-emerald-50 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
+              <button
+                onClick={onReviewed}
+                className="rounded-xl border border-emerald-200 bg-emerald-50 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
                 Done
               </button>
             </>
           ) : (
             <>
-              <button onClick={onAssign} className="col-span-2 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors">
+              <button
+                onClick={onAssign}
+                className="col-span-2 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+              >
                 Assign to me
               </button>
-              <button onClick={onOpen} className="rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+              <button
+                onClick={onOpen}
+                className="rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
                 Preview
               </button>
-              <button onClick={onEscalate} className="rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100">
+              <button
+                onClick={onEscalate}
+                className="rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+              >
                 Escalate
               </button>
             </>
@@ -1061,23 +1218,28 @@ function CaseCard({ item, index, isAssignedToCurrent, onOpen, onAssign, onUnassi
 function ModalShell({ title, onClose, wide, children }) {
   return (
     <div className="fixed inset-0 z-[3000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm sm:backdrop-blur-md">
-       <motion.div
-         initial={{ opacity: 0, y: "100%", scale: 0.95 }}
-         animate={{ opacity: 1, y: 0, scale: 1 }}
-         exit={{ opacity: 0, y: "100%", scale: 0.95 }}
-         transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-         className={`bg-white/95 backdrop-blur-2xl shadow-2xl rounded-t-3xl sm:rounded-3xl border border-white/70 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] w-full ${wide ? 'max-w-4xl' : 'max-w-md'}`}
-       >
-         <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-100 bg-white/50 shrink-0">
-            <h2 className="font-semibold text-slate-800 text-sm sm:text-base">{title}</h2>
-            <button onClick={onClose} className="p-2 text-slate-400 bg-slate-50 rounded-full hover:bg-slate-100 hover:text-slate-700 transition-colors">
-              <X size={18}/>
-            </button>
-         </div>
-         <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
-            {children}
-         </div>
-       </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: "100%", scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: "100%", scale: 0.95 }}
+        transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+        className={`bg-white/95 backdrop-blur-2xl shadow-2xl rounded-t-3xl sm:rounded-3xl border border-white/70 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] w-full ${wide ? "max-w-4xl" : "max-w-md"}`}
+      >
+        <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-100 bg-white/50 shrink-0">
+          <h2 className="font-semibold text-slate-800 text-sm sm:text-base">
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 bg-slate-50 rounded-full hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
+          {children}
+        </div>
+      </motion.div>
     </div>
-  )
+  );
 }

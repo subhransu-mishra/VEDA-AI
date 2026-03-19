@@ -1,5 +1,5 @@
 import Doctor from "../../Schema/doctorSchema.js";
-import cloudinary from "../../config/cloudinary.js";
+import cloudinary, { isCloudinaryConfigured } from "../../config/cloudinary.js";
 
 const REQUIRED_TEXT_FIELDS = [
   "registrationCouncil",
@@ -106,6 +106,13 @@ const getVerificationResponse = (doctor) => ({
 
 export const submitDoctorVerification = async (req, res) => {
   try {
+    if (!isCloudinaryConfigured) {
+      return res.status(503).json({
+        message:
+          "Upload service is not configured. Missing Cloudinary environment variables.",
+      });
+    }
+
     const doctor = await Doctor.findById(req.doctor._id);
     if (!doctor) {
       return res.status(404).json({ message: "Doctor not found" });
@@ -185,8 +192,23 @@ export const submitDoctorVerification = async (req, res) => {
       verification: getVerificationResponse(doctor),
     });
   } catch (error) {
-    console.error("Submit Doctor Verification Error:", error.message);
-    return res.status(500).json({ message: "Internal Server Error" });
+    console.error("Submit Doctor Verification Error:", error);
+
+    if (
+      String(error?.message || "")
+        .toLowerCase()
+        .includes("must supply api_key")
+    ) {
+      return res.status(503).json({
+        message:
+          "Upload service authentication failed. Check Cloudinary API credentials in backend environment.",
+      });
+    }
+
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error?.message || "Unknown upload error",
+    });
   }
 };
 

@@ -375,13 +375,13 @@ export default function Navbar({
                     onLogout?.();
                     setShowLogoutConfirm(false);
                   }}
-                  className="w-full py-4 bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-red-600 transition-colors"
+                  className="w-full py-4 cursor-pointer bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-red-600 transition-colors"
                 >
                   Yes, Sign Out
                 </button>
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full py-4 bg-slate-100 text-slate-400 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em]"
+                  className="w-full py-4 cursor-pointer bg-slate-100 text-slate-400 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-slate-200 transition-colors"
                 >
                   Stay Logged In
                 </button>
