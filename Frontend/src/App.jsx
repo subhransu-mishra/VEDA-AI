@@ -1,5 +1,5 @@
-// src/App.jsx
-import { useEffect, useMemo, useState } from "react";
+﻿// src/App.jsx
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -17,19 +17,19 @@ import LoginModal from "./components/LoginModal";
 import SignupModal from "./components/SignupModal";
 
 import Hero from "./components/Hero";
-import About from "./components/About";
-import Features from "./components/Features";
-import HowToUse from "./components/HowToUse";
-import Testimonials from "./components/Testimonials";
+const About = lazy(() => import("./components/About"));
+const Features = lazy(() => import("./components/Features"));
+const HowToUse = lazy(() => import("./components/HowToUse"));
+const Testimonials = lazy(() => import("./components/Testimonials"));
 
-import PatientSignup from "./pages/PatientSignup";
-import DoctorDashboard from "./pages/DoctorDashboard";
-import PatientDashboard from "./pages/PatientDashboard";
-import AdminVerificationPanel from "./pages/AdminVerificationPanel";
-import PatientAnalysisPage from "./pages/PatientAnalysisPage";
+const PatientSignup = lazy(() => import("./pages/PatientSignup"));
+const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
+const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
+const AdminVerificationPanel = lazy(() => import("./pages/AdminVerificationPanel"));
+const PatientAnalysisPage = lazy(() => import("./pages/PatientAnalysisPage"));
 
-import DoctorSignup from "./components/DoctorSignup";
-import DoctorVerification from "./components/DoctorVerification";
+const DoctorSignup = lazy(() => import("./components/DoctorSignup"));
+const DoctorVerification = lazy(() => import("./components/DoctorVerification"));
 import {
   clearSession,
   DOCTORS_KEY,
@@ -58,6 +58,10 @@ function getDoctorByEmail(email) {
   return readList(DOCTORS_KEY).find(
     (d) => d.email?.toLowerCase() === email.toLowerCase(),
   );
+}
+
+function RouteLoader() {
+  return <div className="min-h-[40vh] bg-transparent" />;
 }
 
 function ProtectedRole({ session, role, children }) {
@@ -136,18 +140,20 @@ function LandingPage({
           onGetStarted={onGetStarted}
         />
       </section>
-      <section id="about">
-        <About />
-      </section>
-      <section id="features">
-        <Features />
-      </section>
-      <section id="how-to-use">
-        <HowToUse />
-      </section>
-      <section id="reviews">
-        <Testimonials />
-      </section>
+      <Suspense fallback={<RouteLoader />}>
+        <section id="about">
+          <About />
+        </section>
+        <section id="features">
+          <Features />
+        </section>
+        <section id="how-to-use">
+          <HowToUse />
+        </section>
+        <section id="reviews">
+          <Testimonials />
+        </section>
+      </Suspense>
     </>
   );
 }
@@ -269,108 +275,110 @@ function AppInner() {
       />
 
       <main className={isHome ? "" : "pt-22 sm:pt-24"}>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <LandingPage
-                isLoggedIn={isLoggedIn}
-                session={session}
-                onOpenLogin={openLogin}
-                onOpenSignup={openSignup}
-                onGetStarted={goToGetStarted}
-              />
-            }
-          />
+        <Suspense fallback={<RouteLoader />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <LandingPage
+                  isLoggedIn={isLoggedIn}
+                  session={session}
+                  onOpenLogin={openLogin}
+                  onOpenSignup={openSignup}
+                  onGetStarted={goToGetStarted}
+                />
+              }
+            />
 
-          <Route
-            path="/login"
-            element={<Navigate to="/?modal=login&role=patient" replace />}
-          />
-          <Route
-            path="/login/patient"
-            element={<Navigate to="/?modal=login&role=patient" replace />}
-          />
-          <Route
-            path="/login/doctor"
-            element={<Navigate to="/?modal=login&role=doctor" replace />}
-          />
+            <Route
+              path="/login"
+              element={<Navigate to="/?modal=login&role=patient" replace />}
+            />
+            <Route
+              path="/login/patient"
+              element={<Navigate to="/?modal=login&role=patient" replace />}
+            />
+            <Route
+              path="/login/doctor"
+              element={<Navigate to="/?modal=login&role=doctor" replace />}
+            />
 
-          <Route path="/signup" element={<Navigate to="/" replace />} />
-          <Route
-            path="/signup/doctor"
-            element={
-              isLoggedIn ? (
-                <Navigate to="/" replace />
-              ) : (
-                <DoctorSignup onSignup={onAuth} />
-              )
-            }
-          />
-          <Route
-            path="/signup/patient"
-            element={
-              isLoggedIn ? (
-                <Navigate to="/" replace />
-              ) : (
-                <PatientSignup onSignup={onAuth} />
-              )
-            }
-          />
+            <Route path="/signup" element={<Navigate to="/" replace />} />
+            <Route
+              path="/signup/doctor"
+              element={
+                isLoggedIn ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <DoctorSignup onSignup={onAuth} />
+                )
+              }
+            />
+            <Route
+              path="/signup/patient"
+              element={
+                isLoggedIn ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <PatientSignup onSignup={onAuth} />
+                )
+              }
+            />
 
-          <Route
-            path="/doctor/verification"
-            element={
-              <ProtectedDoctorVerification
-                session={session}
-                doctorVerificationStatus={doctorVerificationStatus}
-              >
-                <DoctorVerification session={session} />
-              </ProtectedDoctorVerification>
-            }
-          />
+            <Route
+              path="/doctor/verification"
+              element={
+                <ProtectedDoctorVerification
+                  session={session}
+                  doctorVerificationStatus={doctorVerificationStatus}
+                >
+                  <DoctorVerification session={session} />
+                </ProtectedDoctorVerification>
+              }
+            />
 
-          <Route
-            path="/dashboard/doctor"
-            element={
-              <ProtectedDoctorDashboard
-                session={session}
-                doctorVerificationStatus={doctorVerificationStatus}
-              >
-                <DoctorDashboard session={session} onLogout={onLogout} />
-              </ProtectedDoctorDashboard>
-            }
-          />
+            <Route
+              path="/dashboard/doctor"
+              element={
+                <ProtectedDoctorDashboard
+                  session={session}
+                  doctorVerificationStatus={doctorVerificationStatus}
+                >
+                  <DoctorDashboard session={session} onLogout={onLogout} />
+                </ProtectedDoctorDashboard>
+              }
+            />
 
-          <Route
-            path="/dashboard/patient"
-            element={
-              <ProtectedRole session={session} role="patient">
-                <PatientDashboard session={session} onLogout={onLogout} />
-              </ProtectedRole>
-            }
-          />
+            <Route
+              path="/dashboard/patient"
+              element={
+                <ProtectedRole session={session} role="patient">
+                  <PatientDashboard session={session} onLogout={onLogout} />
+                </ProtectedRole>
+              }
+            />
 
-          <Route
-            path="/analysis"
-            element={
-              <ProtectedRole session={session} role="patient">
-                <PatientAnalysisPage session={session} />
-              </ProtectedRole>
-            }
-          />
+            <Route
+              path="/analysis"
+              element={
+                <ProtectedRole session={session} role="patient">
+                  <PatientAnalysisPage session={session} />
+                </ProtectedRole>
+              }
+            />
 
-          <Route
-            path="/admin/verification"
-            element={
-              <ProtectedAdmin session={session}>
-                <AdminVerificationPanel session={session} />
-              </ProtectedAdmin>
-            }
-          />
+            <Route
+              path="/admin/verification"
+              element={
+                <ProtectedAdmin session={session}>
+                  <AdminVerificationPanel session={session} />
+                </ProtectedAdmin>
+              }
+            />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
 
       <Footer />

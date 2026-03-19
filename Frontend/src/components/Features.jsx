@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   ArrowUpRight,
@@ -7,48 +7,11 @@ import {
   Route,
   Stethoscope,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const easeSmooth = [0.22, 1, 0.36, 1];
 
-const featureDetails = {
-  guided: {
-    title: "Guided Symptom Input",
-    detail:
-      "VedaAI helps patients explain symptoms step by step instead of expecting them to describe everything perfectly at once. That makes the first healthcare interaction calmer, clearer, and more useful.",
-  },
-  private: {
-    title: "Private-first Experience",
-    detail:
-      "Many patients hesitate when the concern feels personal or embarrassing. VedaAI creates a more private and guided first step so sensitive symptoms can be expressed with more comfort and less fear of judgment.",
-  },
-  direction: {
-    title: "Clear Next Direction",
-    detail:
-      "After symptoms and records are understood, VedaAI helps reduce uncertainty by pointing patients toward a clearer next step instead of leaving them confused about what to do next.",
-  },
-  doctor: {
-    title: "Doctor-ready Context",
-    detail:
-      "Important case details are organized into a cleaner summary so doctors can begin with stronger context and patients can have more focused consultations.",
-  },
-  everyday: {
-    title: "Everyday symptoms",
-    detail:
-      "Many health journeys begin with symptoms that feel small but unclear. VedaAI helps patients make sense of those signals early, before confusion grows into delay.",
-  },
-  chronic: {
-    title: "Ongoing conditions",
-    detail:
-      "Recurring symptoms and long-term conditions need better continuity. VedaAI helps bring old reports, recurring symptoms, and patient context into one clearer flow.",
-  },
-  followup: {
-    title: "Follow-up guidance",
-    detail:
-      "After reports, prescriptions, or previous consultations, patients still need clarity. VedaAI helps turn that material into a more understandable next step.",
-  },
-};
-
-function DetailModal({ item, onClose }) {
+function DetailModal({ item, onClose, t }) {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === "Escape") onClose();
@@ -81,7 +44,7 @@ function DetailModal({ item, onClose }) {
       >
         <div className="mb-5 h-px w-24 bg-[linear-gradient(90deg,#7b5f49,transparent)]" />
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#7b5f49]">
-          VedaAI Detail
+          {t("features.modalLabel", { defaultValue: "VedaAI Detail" })}
         </p>
         <h3 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[#1d1815] sm:text-3xl">
           {item.title}
@@ -91,13 +54,13 @@ function DetailModal({ item, onClose }) {
         </p>
 
         <div className="mt-6 flex items-center justify-between gap-4">
-          <p className="text-sm text-[#7b5f49]">Tap outside to close</p>
+          <p className="text-sm text-[#7b5f49]">{t("features.tapOutsideToClose", { defaultValue: "Tap outside to close" })}</p>
           <button
             type="button"
             onClick={onClose}
             className="bg-[#2f241d] px-4 py-2 text-sm font-semibold text-[#f7efe6]"
           >
-            Close
+            {t("features.close", { defaultValue: "Close" })}
           </button>
         </div>
       </motion.div>
@@ -158,7 +121,7 @@ function SweepRevealImage({
   );
 }
 
-function SmallCard({ title, text, onClick }) {
+function SmallCard({ title, text, onClick, t }) {
   return (
     <button
       type="button"
@@ -170,7 +133,7 @@ function SmallCard({ title, text, onClick }) {
       </h4>
       <p className="mt-3 text-sm leading-7 text-[#675952]">{text}</p>
       <div className="mt-5 flex items-center gap-2 text-sm font-medium text-[#7b5f49]">
-        <span>Tap to explore</span>
+        <span>{t("features.tapToExplore", { defaultValue: "Tap to explore" })}</span>
         <ArrowUpRight size={16} strokeWidth={1.8} />
       </div>
     </button>
@@ -178,8 +141,64 @@ function SmallCard({ title, text, onClick }) {
 }
 
 export default function Features() {
+  const { t } = useTranslation();
   const introRef = useRef(null);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  const featureDetails = useMemo(
+    () => ({
+      guided: {
+        title: t("features.details.guided.title", { defaultValue: "Guided Symptom Input" }),
+        detail: t("features.details.guided.detail", {
+          defaultValue:
+            "VedaAI helps patients explain symptoms step by step instead of expecting them to describe everything perfectly at once. That makes the first healthcare interaction calmer, clearer, and more useful.",
+        }),
+      },
+      private: {
+        title: t("features.details.private.title", { defaultValue: "Private-first Experience" }),
+        detail: t("features.details.private.detail", {
+          defaultValue:
+            "Many patients hesitate when the concern feels personal or embarrassing. VedaAI creates a more private and guided first step so sensitive symptoms can be expressed with more comfort and less fear of judgment.",
+        }),
+      },
+      direction: {
+        title: t("features.details.direction.title", { defaultValue: "Clear Next Direction" }),
+        detail: t("features.details.direction.detail", {
+          defaultValue:
+            "After symptoms and records are understood, VedaAI helps reduce uncertainty by pointing patients toward a clearer next step instead of leaving them confused about what to do next.",
+        }),
+      },
+      doctor: {
+        title: t("features.details.doctor.title", { defaultValue: "Doctor-ready Context" }),
+        detail: t("features.details.doctor.detail", {
+          defaultValue:
+            "Important case details are organized into a cleaner summary so doctors can begin with stronger context and patients can have more focused consultations.",
+        }),
+      },
+      everyday: {
+        title: t("features.details.everyday.title", { defaultValue: "Everyday symptoms" }),
+        detail: t("features.details.everyday.detail", {
+          defaultValue:
+            "Many health journeys begin with symptoms that feel small but unclear. VedaAI helps patients make sense of those signals early, before confusion grows into delay.",
+        }),
+      },
+      chronic: {
+        title: t("features.details.chronic.title", { defaultValue: "Ongoing conditions" }),
+        detail: t("features.details.chronic.detail", {
+          defaultValue:
+            "Recurring symptoms and long-term conditions need better continuity. VedaAI helps bring old reports, recurring symptoms, and patient context into one clearer flow.",
+        }),
+      },
+      followup: {
+        title: t("features.details.followup.title", { defaultValue: "Follow-up guidance" }),
+        detail: t("features.details.followup.detail", {
+          defaultValue:
+            "After reports, prescriptions, or previous consultations, patients still need clarity. VedaAI helps turn that material into a more understandable next step.",
+        }),
+      },
+    }),
+    [t]
+  );
 
   const { scrollYProgress } = useScroll({
     target: introRef,
@@ -215,18 +234,18 @@ export default function Features() {
             <motion.div style={{ y: titleY, opacity: titleOpacity }}>
               <div className="mb-4 h-px w-24 bg-[linear-gradient(90deg,#7b5f49,transparent)]" />
               <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#7b5f49] sm:text-sm">
-                A Real Patient Problem
+                {t("features.sectionLabel", { defaultValue: "A Real Patient Problem" })}
               </p>
 
               <h2 className="mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.06em] text-[#1d1815] sm:text-4xl lg:text-5xl">
-                Some health concerns are hardest to say out loud.
+                {t("features.title", { defaultValue: "Some health concerns are hardest to say out loud." })}
               </h2>
 
               <p className="mt-6 max-w-lg text-sm leading-7 text-[#675952] sm:text-base">
-                In India, many people hesitate when they need to speak about
-                sensitive health concerns. Social discomfort, privacy anxiety,
-                and fear of judgment often make the first healthcare conversation
-                harder than it should be.
+                {t("features.intro1", {
+                  defaultValue:
+                    "In India, many people hesitate when they need to speak about sensitive health concerns. Social discomfort, privacy anxiety, and fear of judgment often make the first healthcare conversation harder than it should be.",
+                })}
               </p>
             </motion.div>
 
@@ -238,14 +257,14 @@ export default function Features() {
               className="grid gap-5"
             >
               <p className="max-w-md text-sm leading-7 text-[#675952] sm:text-base">
-                VedaAI reduces that barrier through a calmer, more guided way to
-                describe symptoms, organize context, and move toward the right
-                care path with more dignity and confidence.
+                {t("features.intro2", {
+                  defaultValue:
+                    "VedaAI reduces that barrier through a calmer, more guided way to describe symptoms, organize context, and move toward the right care path with more dignity and confidence.",
+                })}
               </p>
 
               <div className="grid gap-4 sm:grid-cols-[0.95fr_1.05fr]">
                 <div className="overflow-hidden bg-[#ddd3c6]">
-                  {/* Put image in public/img3.jpg */}
                   <img
                     src="/img3.jpg"
                     alt="Private guided support"
@@ -256,11 +275,13 @@ export default function Features() {
                 <div className="flex flex-col justify-between bg-[#f8f2ea] px-5 py-5">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#7b5f49]">
-                      Why it matters
+                      {t("features.whyItMatters", { defaultValue: "Why it matters" })}
                     </p>
                     <p className="mt-3 text-sm leading-7 text-[#675952]">
-                      A private digital first step gives patients time, comfort,
-                      and structure before speaking to a doctor directly.
+                      {t("features.whyItMattersBody", {
+                        defaultValue:
+                          "A private digital first step gives patients time, comfort, and structure before speaking to a doctor directly.",
+                      })}
                     </p>
                   </div>
 
@@ -274,7 +295,7 @@ export default function Features() {
             <SweepRevealImage
               src="/img1.jpg"
               alt="Patient discussion"
-              label="Safe expression"
+              label={t("features.safeExpression", { defaultValue: "Safe expression" })}
               direction="left"
               className="aspect-[4/3] bg-[#d9dfdf]"
             />
@@ -287,21 +308,25 @@ export default function Features() {
               className="bg-[#3b2d24] px-6 py-8 text-[#f6efe8]"
             >
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/52">
-                Key Insight
+                {t("features.keyInsight", { defaultValue: "Key Insight" })}
               </p>
               <h3 className="mt-4 text-2xl font-semibold leading-tight tracking-[-0.04em]">
-                Privacy changes how honestly people explain their symptoms.
+                {t("features.keyInsightTitle", {
+                  defaultValue: "Privacy changes how honestly people explain their symptoms.",
+                })}
               </h3>
               <p className="mt-4 text-sm leading-7 text-white/72">
-                A guided digital experience can help patients express sensitive
-                symptoms with more comfort than an immediate face-to-face conversation.
+                {t("features.keyInsightBody", {
+                  defaultValue:
+                    "A guided digital experience can help patients express sensitive symptoms with more comfort than an immediate face-to-face conversation.",
+                })}
               </p>
             </motion.div>
 
             <SweepRevealImage
               src="/img2.jpg"
               alt="Guided care support"
-              label="Guided support"
+              label={t("features.guidedSupport", { defaultValue: "Guided support" })}
               direction="right"
               className="aspect-[4/3] bg-[#d9dfdf] lg:max-w-[300px] lg:justify-self-end"
             />
@@ -319,17 +344,20 @@ export default function Features() {
                 <div className="bg-[#f8f2ea] px-5 py-6 sm:px-6 sm:py-7">
                   <div className="mb-4 h-px w-24 bg-[linear-gradient(90deg,#7b5f49,transparent)]" />
                   <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#7b5f49] sm:text-sm">
-                    Core Capability
+                    {t("features.coreCapability", { defaultValue: "Core Capability" })}
                   </p>
 
                   <h3 className="mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.05em] text-[#1d1815] sm:text-4xl">
-                    Built to support many kinds of health concerns, not just one.
+                    {t("features.coreTitle", {
+                      defaultValue: "Built to support many kinds of health concerns, not just one.",
+                    })}
                   </h3>
 
                   <p className="mt-4 max-w-lg text-sm leading-7 text-[#675952] sm:text-base">
-                    VedaAI is designed to work across everyday symptoms,
-                    sensitive conversations, ongoing conditions, and follow-up
-                    guidance.
+                    {t("features.coreBody", {
+                      defaultValue:
+                        "VedaAI is designed to work across everyday symptoms, sensitive conversations, ongoing conditions, and follow-up guidance.",
+                    })}
                   </p>
                 </div>
 
@@ -341,7 +369,7 @@ export default function Features() {
                   <SweepRevealImage
                     src="/img4.jpg"
                     alt="Sensitive concerns"
-                    label="Sensitive concerns"
+                    label={t("features.sensitiveConcerns", { defaultValue: "Sensitive concerns" })}
                     direction="left"
                     dark
                     className="aspect-[16/11] bg-[#2f241d]"
@@ -353,16 +381,18 @@ export default function Features() {
                     </div>
 
                     <h4 className="mt-4 text-2xl font-semibold tracking-[-0.04em]">
-                      Private-first Experience
+                      {t("features.privateTitle", { defaultValue: "Private-first Experience" })}
                     </h4>
 
                     <p className="mt-3 text-sm leading-7 text-white/72">
-                      Sensitive concerns can be expressed with more comfort,
-                      less hesitation, and greater privacy.
+                      {t("features.privateBody", {
+                        defaultValue:
+                          "Sensitive concerns can be expressed with more comfort, less hesitation, and greater privacy.",
+                      })}
                     </p>
 
                     <div className="mt-5 flex items-center gap-2 text-sm font-medium text-[#e5c8a8]">
-                      <span>Tap to explore</span>
+                      <span>{t("features.tapToExplore", { defaultValue: "Tap to explore" })}</span>
                       <ArrowUpRight size={16} strokeWidth={1.8} />
                     </div>
                   </div>
@@ -371,21 +401,33 @@ export default function Features() {
 
               <div className="grid gap-5">
                 <SmallCard
-                  title="Everyday symptoms"
-                  text="VedaAI helps patients make sense of common symptoms before confusion grows into delay."
+                  title={t("features.cards.everyday.title", { defaultValue: "Everyday symptoms" })}
+                  text={t("features.cards.everyday.text", {
+                    defaultValue:
+                      "VedaAI helps patients make sense of common symptoms before confusion grows into delay.",
+                  })}
                   onClick={() => setSelectedItem(featureDetails.everyday)}
+                  t={t}
                 />
 
                 <SmallCard
-                  title="Ongoing conditions"
-                  text="Recurring symptoms and long-term conditions become easier to organize and carry forward."
+                  title={t("features.cards.chronic.title", { defaultValue: "Ongoing conditions" })}
+                  text={t("features.cards.chronic.text", {
+                    defaultValue:
+                      "Recurring symptoms and long-term conditions become easier to organize and carry forward.",
+                  })}
                   onClick={() => setSelectedItem(featureDetails.chronic)}
+                  t={t}
                 />
 
                 <SmallCard
-                  title="Follow-up guidance"
-                  text="Reports, prescriptions, and previous notes become easier to understand and act on."
+                  title={t("features.cards.followup.title", { defaultValue: "Follow-up guidance" })}
+                  text={t("features.cards.followup.text", {
+                    defaultValue:
+                      "Reports, prescriptions, and previous notes become easier to understand and act on.",
+                  })}
                   onClick={() => setSelectedItem(featureDetails.followup)}
+                  t={t}
                 />
 
                 <div className="grid gap-4 bg-[#e7ddd1] px-5 py-6 sm:grid-cols-2 sm:px-6">
@@ -393,20 +435,20 @@ export default function Features() {
                     {
                       key: "guided",
                       icon: FilePenLine,
-                      title: "Guided Symptom Input",
-                      text: "Step-by-step expression instead of pressure.",
+                      title: t("features.cards.guided.title", { defaultValue: "Guided Symptom Input" }),
+                      text: t("features.cards.guided.text", { defaultValue: "Step-by-step expression instead of pressure." }),
                     },
                     {
                       key: "direction",
                       icon: Route,
-                      title: "Clear Next Direction",
-                      text: "A calmer path toward the right care step.",
+                      title: t("features.cards.direction.title", { defaultValue: "Clear Next Direction" }),
+                      text: t("features.cards.direction.text", { defaultValue: "A calmer path toward the right care step." }),
                     },
                     {
                       key: "doctor",
                       icon: Stethoscope,
-                      title: "Doctor-ready Context",
-                      text: "Better summaries for better conversations.",
+                      title: t("features.cards.doctor.title", { defaultValue: "Doctor-ready Context" }),
+                      text: t("features.cards.doctor.text", { defaultValue: "Better summaries for better conversations." }),
                     },
                   ].map((item) => {
                     const Icon = item.icon;
@@ -440,7 +482,7 @@ export default function Features() {
       </section>
 
       {selectedItem ? (
-        <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+        <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} t={t} />
       ) : null}
     </>
   );

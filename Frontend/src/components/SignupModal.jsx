@@ -1,7 +1,11 @@
-// src/components/SignupModal.jsx
-import { useNavigate } from "react-router-dom";
+﻿import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export default function SignupModal({ open, onClose, onOpenLogin }) {
+  const { t } = useTranslation();
+  const tr = (key, defaultValue, options = {}) =>
+    t(key, { defaultValue, ...options });
+
   const navigate = useNavigate();
 
   if (!open) return null;
@@ -22,8 +26,8 @@ export default function SignupModal({ open, onClose, onOpenLogin }) {
 
             <section className="w-full max-w-sm">
               <div className="mb-12 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Sign up as</h1>
-                <p className="mt-1 text-sm text-slate-500 text-pretty">Choose an option to continue</p>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{tr("signupModal.title", "Sign up as")}</h1>
+                <p className="mt-1 text-sm text-slate-500 text-pretty">{tr("signupModal.subtitle", "Choose an option to continue")}</p>
               </div>
 
               <div className="flex flex-col gap-4">
@@ -34,7 +38,7 @@ export default function SignupModal({ open, onClose, onOpenLogin }) {
                   }}
                   className="group flex w-full items-center justify-between rounded-full border border-slate-200 bg-white/60 p-2 pl-8 pr-2 transition-all hover:border-cyan-200 hover:bg-cyan-50/50 hover:shadow-lg hover:shadow-cyan-500/5 active:scale-[0.98]"
                 >
-                  <span className="text-base font-medium text-slate-700">Doctor</span>
+                  <span className="text-base font-medium text-slate-700">{tr("common.doctor", "Doctor")}</span>
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white transition-colors group-hover:bg-cyan-600">
                     <span className="text-lg">→</span>
                   </div>
@@ -47,7 +51,7 @@ export default function SignupModal({ open, onClose, onOpenLogin }) {
                   }}
                   className="group flex w-full items-center justify-between rounded-full border border-slate-200 bg-white/60 p-2 pl-8 pr-2 transition-all hover:border-blue-200 hover:bg-blue-50/50 hover:shadow-lg hover:shadow-blue-500/5 active:scale-[0.98]"
                 >
-                  <span className="text-base font-medium text-slate-700">Patient</span>
+                  <span className="text-base font-medium text-slate-700">{tr("common.patient", "Patient")}</span>
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white transition-colors group-hover:bg-blue-600">
                     <span className="text-lg">→</span>
                   </div>
@@ -55,7 +59,7 @@ export default function SignupModal({ open, onClose, onOpenLogin }) {
               </div>
 
               <p className="mt-12 text-center text-xs text-slate-400">
-                Already have an account?{" "}
+                {tr("signupModal.alreadyHaveAccount", "Already have an account?")} {" "}
                 <button
                   type="button"
                   onClick={() => {
@@ -64,7 +68,7 @@ export default function SignupModal({ open, onClose, onOpenLogin }) {
                   }}
                   className="font-medium text-slate-600 underline underline-offset-4"
                 >
-                  Log in
+                  {tr("signupModal.logIn", "Log in")}
                 </button>
               </p>
             </section>
