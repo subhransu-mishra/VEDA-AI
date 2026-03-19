@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  adminLogin,
   doctorSignup,
   doctorLogin,
   patientSignup,
@@ -10,6 +11,7 @@ const router = express.Router();
 
 router.post("/doctor/signup", doctorSignup);
 router.post("/doctor/login", doctorLogin);
+router.post("/admin/login", adminLogin);
 router.post("/patient/signup", patientSignup);
 router.post("/patient/login", patientLogin);
 
