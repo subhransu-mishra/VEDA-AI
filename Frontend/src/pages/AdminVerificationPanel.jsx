@@ -374,14 +374,14 @@ export default function AdminVerificationPanel({ session }) {
                               <button
                                 disabled={isSubmittingFor === row.doctor.id}
                                 onClick={() => approve(row)}
-                                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                className="rounded-xl cursor-pointer bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Approve
                               </button>
                               <button
                                 disabled={isSubmittingFor === row.doctor.id}
                                 onClick={() => reject(row)}
-                                className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                className="rounded-xl cursor-pointer bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Reject
                               </button>

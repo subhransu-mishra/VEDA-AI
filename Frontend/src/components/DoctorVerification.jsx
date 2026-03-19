@@ -530,7 +530,7 @@ export default function DoctorVerification({ session }) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-2 rounded-xl cursor-pointer bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? "Submitting..." : "Submit Verification"}
               </button>
