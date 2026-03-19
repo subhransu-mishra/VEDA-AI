@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Triangle } from "react-loader-spinner";
+import { useTranslation } from "react-i18next";
 import { analysisApi } from "../api/analysisApi";
 import { findPatientCacheByEmail } from "../utils/authStorage";
 import {
@@ -35,21 +36,6 @@ const STATUS_STEPS = [
   "completed",
 ];
 
-const STATUS_LABEL = {
-  ai_completed: "AI completed",
-  doctor_requested: "Doctor requested",
-  doctor_assigned: "Doctor assigned",
-  consultation_active: "Consultation active",
-  completed: "Completed",
-};
-
-const LOADING_TEXTS = [
-  "Processing request...",
-  "AI is analyzing your symptoms...",
-  "Building your structured medical report...",
-  "Preparing specialist recommendation...",
-];
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const makeChatId = () =>
@@ -57,23 +43,46 @@ const makeChatId = () =>
     ? crypto.randomUUID()
     : `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-const aiFollowUp = (text, ai) => {
+const aiFollowUp = (text, ai, tr) => {
   const q = text.toLowerCase();
 
   if (q.includes("serious") || q.includes("danger")) {
-    return "This can be serious depending on symptom progression. If pain increases, breathing issues start, or bleeding appears, seek urgent care.";
+    return tr(
+      "analysisPage.aiReplies.serious",
+      "This can be serious depending on symptom progression. If pain increases, breathing issues start, or bleeding appears, seek urgent care.",
+    );
   }
   if (q.includes("medicine") || q.includes("tablet")) {
-    return "Please avoid self-medication from AI chat alone. Let a doctor confirm medicine based on your case history.";
+    return tr(
+      "analysisPage.aiReplies.medicine",
+      "Please avoid self-medication from AI chat alone. Let a doctor confirm medicine based on your case history.",
+    );
   }
   if (q.includes("doctor") || q.includes("connect")) {
-    return `You can use the "Connect to Doctor" button above. Recommended specialist: ${ai?.recommendedDoctor || "General Physician"}.`;
+    return tr(
+      "analysisPage.aiReplies.doctor",
+      'You can use the "Connect to Doctor" button above. Recommended specialist: {{doctor}}.',
+      {
+        doctor:
+          ai?.recommendedDoctor ||
+          tr("analysisPage.generalPhysician", "General Physician"),
+      },
+    );
   }
   if (q.includes("summary")) {
-    return ai?.summary || "I can summarize your case after you submit details.";
+    return (
+      ai?.summary ||
+      tr(
+        "analysisPage.aiReplies.summary",
+        "I can summarize your case after you submit details.",
+      )
+    );
   }
 
-  return "I understood. I have added this to your context. If you are ready, connect with a doctor so they receive your complete summary.";
+  return tr(
+    "analysisPage.aiReplies.default",
+    "I understood. I have added this to your context. If you are ready, connect with a doctor so they receive your complete summary.",
+  );
 };
 
 const formatDateTime = (iso) => (iso ? new Date(iso).toLocaleString() : "");
@@ -84,7 +93,69 @@ const extractPrimarySpecialist = (report) =>
   "";
 
 export default function PatientAnalysisPage({ session }) {
+  const { t } = useTranslation();
+  const tr = (key, defaultValue, options = {}) =>
+    t(key, { defaultValue, ...options });
+
   const navigate = useNavigate();
+
+  const statusLabelMap = useMemo(
+    () => ({
+      ai_completed: tr("analysisPage.status.aiCompleted", "AI completed"),
+      doctor_requested: tr(
+        "analysisPage.status.doctorRequested",
+        "Doctor requested",
+      ),
+      doctor_assigned: tr("analysisPage.status.doctorAssigned", "Doctor assigned"),
+      consultation_active: tr(
+        "analysisPage.status.consultationActive",
+        "Consultation active",
+      ),
+      completed: tr("analysisPage.status.completed", "Completed"),
+    }),
+    [t],
+  );
+
+  const loadingTexts = useMemo(
+    () => [
+      tr("analysisPage.loading.processing", "Processing request..."),
+      tr(
+        "analysisPage.loading.analyzingSymptoms",
+        "AI is analyzing your symptoms...",
+      ),
+      tr(
+        "analysisPage.loading.buildingReport",
+        "Building your structured medical report...",
+      ),
+      tr(
+        "analysisPage.loading.preparingSpecialist",
+        "Preparing specialist recommendation...",
+      ),
+    ],
+    [t],
+  );
+
+  const durationOptions = useMemo(
+    () => [
+      {
+        value: "Less than 24h",
+        label: tr("analysisPage.duration.lessThan24h", "Less than 24h"),
+      },
+      {
+        value: "1-2 days",
+        label: tr("analysisPage.duration.oneToTwoDays", "1-2 days"),
+      },
+      {
+        value: "3-7 days",
+        label: tr("analysisPage.duration.threeToSevenDays", "3-7 days"),
+      },
+      {
+        value: "1+ weeks",
+        label: tr("analysisPage.duration.onePlusWeeks", "1+ weeks"),
+      },
+    ],
+    [t],
+  );
 
   const [form, setForm] = useState({
     age: "",
@@ -133,11 +204,11 @@ export default function PatientAnalysisPage({ session }) {
     }
 
     const intervalId = setInterval(() => {
-      setLoadingTextIndex((prev) => (prev + 1) % LOADING_TEXTS.length);
+      setLoadingTextIndex((prev) => (prev + 1) % loadingTexts.length);
     }, 1700);
 
     return () => clearInterval(intervalId);
-  }, [submitting]);
+  }, [submitting, loadingTexts]);
 
   const refresh = () => setRefreshTick((v) => v + 1);
 
@@ -175,7 +246,7 @@ export default function PatientAnalysisPage({ session }) {
         status,
         timeline: [
           ...(prev.doctorFlow?.timeline || []),
-          { status, label: STATUS_LABEL[status], at: now },
+          { status, label: statusLabelMap[status], at: now },
         ],
       },
     }));
@@ -217,7 +288,10 @@ export default function PatientAnalysisPage({ session }) {
 
     if (!session?.token) {
       setAnalysisError(
-        "Session expired. Please log in again to generate AI diagnosis.",
+        tr(
+          "analysisPage.errors.sessionExpiredGenerate",
+          "Session expired. Please log in again to generate AI diagnosis.",
+        ),
       );
       setSubmitting(false);
       return;
@@ -233,10 +307,13 @@ export default function PatientAnalysisPage({ session }) {
       const structuredReport = response?.analysis || {};
       const topCondition =
         structuredReport?.conditionAnalysis?.possibleConditions?.[0]?.name ||
-        "Not enough data";
+        tr("analysisPage.notEnoughData", "Not enough data");
       const topCause =
         structuredReport?.conditionAnalysis?.possibleCauses?.[0] ||
-        "Cause not clearly identified";
+        tr(
+          "analysisPage.causeNotIdentified",
+          "Cause not clearly identified",
+        );
       const testPreview = (
         structuredReport?.recommendedResolution?.testsToConsider || []
       )
@@ -253,15 +330,37 @@ export default function PatientAnalysisPage({ session }) {
         model: "gemini-1.5-flash",
         summary:
           structuredReport?.summary ||
-          "AI triage completed. Please consult a doctor for confirmation.",
+          tr(
+            "analysisPage.aiTriageCompleted",
+            "AI triage completed. Please consult a doctor for confirmation.",
+          ),
         urgency: structuredReport?.urgency || "moderate",
         recommendedDoctor:
-          structuredReport?.recommendedSpecialist || "General Physician",
+          structuredReport?.recommendedSpecialist ||
+          tr("analysisPage.generalPhysician", "General Physician"),
         keyPoints: [
-          `Top possibility: ${topCondition}`,
-          `Likely cause: ${topCause}`,
-          `Emergency level: ${structuredReport?.emergencyAssessment?.level || "moderate"}`,
-          `Tests: ${testPreview || "No specific tests suggested"}`,
+          tr("analysisPage.keyPoints.topPossibility", "Top possibility: {{value}}", {
+            value: topCondition,
+          }),
+          tr("analysisPage.keyPoints.likelyCause", "Likely cause: {{value}}", {
+            value: topCause,
+          }),
+          tr(
+            "analysisPage.keyPoints.emergencyLevel",
+            "Emergency level: {{value}}",
+            {
+              value:
+                structuredReport?.emergencyAssessment?.level || "moderate",
+            },
+          ),
+          tr("analysisPage.keyPoints.tests", "Tests: {{value}}", {
+            value:
+              testPreview ||
+              tr(
+                "analysisPage.noSpecificTestsSuggested",
+                "No specific tests suggested",
+              ),
+          }),
         ],
         report: structuredReport,
       };
@@ -284,7 +383,7 @@ export default function PatientAnalysisPage({ session }) {
           timeline: [
             {
               status: response?.case?.status || "ai_completed",
-              label: STATUS_LABEL[response?.case?.status || "ai_completed"],
+              label: statusLabelMap[response?.case?.status || "ai_completed"],
               at: new Date().toISOString(),
             },
           ],
@@ -293,7 +392,9 @@ export default function PatientAnalysisPage({ session }) {
           {
             id: makeChatId(),
             role: "ai",
-            text: `I analyzed your details. ${ai.summary}`,
+            text: tr("analysisPage.aiIntro", "I analyzed your details. {{summary}}", {
+              summary: ai.summary,
+            }),
             createdAt: new Date().toISOString(),
           },
         ],
@@ -308,7 +409,13 @@ export default function PatientAnalysisPage({ session }) {
       setConsultationError("");
       refresh();
     } catch (err) {
-      setAnalysisError(err?.message || "Failed to generate AI diagnosis");
+      setAnalysisError(
+        err?.message ||
+          tr(
+            "analysisPage.errors.failedGenerateDiagnosis",
+            "Failed to generate AI diagnosis",
+          ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -322,7 +429,7 @@ export default function PatientAnalysisPage({ session }) {
     setChatInput("");
 
     await sleep(550);
-    appendChat("ai", aiFollowUp(text, activeCase.ai));
+    appendChat("ai", aiFollowUp(text, activeCase.ai, tr));
   };
 
   const onConnectDoctor = async () => {
@@ -331,12 +438,16 @@ export default function PatientAnalysisPage({ session }) {
       connectingDoctor ||
       consultationLoading ||
       isDoctorAssigned
-    )
+    ) {
       return;
+    }
 
     if (!session?.token) {
       setConsultationError(
-        "Session expired. Please log in again to continue consultation.",
+        tr(
+          "analysisPage.errors.sessionExpiredConsultation",
+          "Session expired. Please log in again to continue consultation.",
+        ),
       );
       return;
     }
@@ -345,7 +456,12 @@ export default function PatientAnalysisPage({ session }) {
       activeCase.backendCaseId || activeCase.backendPublicCaseId;
 
     if (!caseIdentifier) {
-      setConsultationError("Case ID missing. Please regenerate AI diagnosis.");
+      setConsultationError(
+        tr(
+          "analysisPage.errors.caseIdMissing",
+          "Case ID missing. Please regenerate AI diagnosis.",
+        ),
+      );
       return;
     }
 
@@ -377,11 +493,20 @@ export default function PatientAnalysisPage({ session }) {
 
       if (!doctors.length) {
         setConsultationError(
-          "No verified doctors available for this specialist right now.",
+          tr(
+            "analysisPage.errors.noVerifiedDoctors",
+            "No verified doctors available for this specialist right now.",
+          ),
         );
       }
     } catch (err) {
-      setConsultationError(err?.message || "Failed to fetch matching doctors");
+      setConsultationError(
+        err?.message ||
+          tr(
+            "analysisPage.errors.failedFetchDoctors",
+            "Failed to fetch matching doctors",
+          ),
+      );
     } finally {
       setConnectingDoctor(false);
     }
@@ -407,7 +532,7 @@ export default function PatientAnalysisPage({ session }) {
       let doctorName =
         matchedDoctors.find(
           (doc) => doc._id === createResponse?.consultation?.doctorId,
-        )?.name || "Assigned Doctor";
+        )?.name || tr("analysisPage.assignedDoctor", "Assigned Doctor");
 
       if (consultationId) {
         const consultationResponse = await analysisApi.getConsultationById({
@@ -428,12 +553,22 @@ export default function PatientAnalysisPage({ session }) {
 
       appendChat(
         "ai",
-        `Consultation request created successfully. Doctor assigned: ${doctorName}.`,
+        tr(
+          "analysisPage.consultationCreated",
+          "Consultation request created successfully. Doctor assigned: {{doctorName}}.",
+          { doctorName },
+        ),
       );
 
       setMatchedDoctors([]);
     } catch (err) {
-      setConsultationError(err?.message || "Failed to create consultation");
+      setConsultationError(
+        err?.message ||
+          tr(
+            "analysisPage.errors.failedCreateConsultation",
+            "Failed to create consultation",
+          ),
+      );
     } finally {
       setConsultationLoading(false);
     }
@@ -455,10 +590,13 @@ export default function PatientAnalysisPage({ session }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                VedaAI Core Flow
+                {tr("analysisPage.coreFlow", "VedaAI Core Flow")}
               </p>
               <h1 className="mt-1 bg-linear-to-r from-slate-900 via-blue-800 to-emerald-700 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
-                Analysis + AI Chat + Doctor Connect
+                {tr(
+                  "analysisPage.title",
+                  "Analysis + AI Chat + Doctor Connect",
+                )}
               </h1>
             </div>
 
@@ -468,7 +606,7 @@ export default function PatientAnalysisPage({ session }) {
                 className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
               >
                 <ArrowLeft size={14} />
-                Dashboard
+                {tr("analysisPage.dashboard", "Dashboard")}
               </button>
 
               <button
@@ -481,7 +619,9 @@ export default function PatientAnalysisPage({ session }) {
                 }`}
               >
                 <MessageCircle size={14} />
-                {chatOpen ? "Hide Chat" : "AI Chat"}
+                {chatOpen
+                  ? tr("analysisPage.hideChat", "Hide Chat")
+                  : tr("analysisPage.aiChat", "AI Chat")}
               </button>
 
               <button
@@ -492,14 +632,14 @@ export default function PatientAnalysisPage({ session }) {
                   consultationLoading ||
                   isDoctorAssigned
                 }
-                className="inline-flex items-center cursor-pointer gap-1 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
               >
                 <Stethoscope size={14} />
                 {isDoctorAssigned
-                  ? "Doctor Connected"
+                  ? tr("analysisPage.doctorConnected", "Doctor Connected")
                   : connectingDoctor
-                    ? "Finding doctors..."
-                    : "Connect to Doctor"}
+                    ? tr("analysisPage.findingDoctors", "Finding doctors...")
+                    : tr("analysisPage.connectDoctor", "Connect to Doctor")}
               </button>
             </div>
           </div>
@@ -514,10 +654,13 @@ export default function PatientAnalysisPage({ session }) {
             className="rounded-3xl border border-white/70 bg-white/75 p-4 shadow-[0_22px_55px_-35px_rgba(15,23,42,0.45)] backdrop-blur-2xl sm:p-5"
           >
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Patient Intake
+              {tr("analysisPage.patientIntake", "Patient Intake")}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              Submit required details once. AI creates summary and chat context.
+              {tr(
+                "analysisPage.intakeSubtitle",
+                "Submit required details once. AI creates summary and chat context.",
+              )}
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -526,7 +669,7 @@ export default function PatientAnalysisPage({ session }) {
                 onChange={(e) =>
                   setForm((p) => ({ ...p, age: e.target.value }))
                 }
-                placeholder="Age"
+                placeholder={tr("analysisPage.age", "Age")}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
               />
               <select
@@ -536,10 +679,10 @@ export default function PatientAnalysisPage({ session }) {
                 }
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
               >
-                <option value="">Gender</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
+                <option value="">{tr("analysisPage.gender", "Gender")}</option>
+                <option>{tr("analysisPage.male", "Male")}</option>
+                <option>{tr("analysisPage.female", "Female")}</option>
+                <option>{tr("analysisPage.other", "Other")}</option>
               </select>
             </div>
 
@@ -549,7 +692,10 @@ export default function PatientAnalysisPage({ session }) {
               onChange={(e) =>
                 setForm((p) => ({ ...p, symptoms: e.target.value }))
               }
-              placeholder="Main symptom / concern"
+              placeholder={tr(
+                "analysisPage.mainSymptom",
+                "Main symptom / concern",
+              )}
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
@@ -561,15 +707,14 @@ export default function PatientAnalysisPage({ session }) {
                 }
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
               >
-                <option>Less than 24h</option>
-                <option>1-2 days</option>
-                <option>3-7 days</option>
-                <option>1+ weeks</option>
+                {durationOptions.map((option) => (
+                  <option key={option.value}>{option.label}</option>
+                ))}
               </select>
 
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <p className="text-xs text-slate-500">
-                  Severity: {form.severity}/10
+                  {tr("analysisPage.severity", "Severity")}: {form.severity}/10
                 </p>
                 <input
                   type="range"
@@ -589,7 +734,10 @@ export default function PatientAnalysisPage({ session }) {
               onChange={(e) =>
                 setForm((p) => ({ ...p, medications: e.target.value }))
               }
-              placeholder="Current medications (optional)"
+              placeholder={tr(
+                "analysisPage.currentMedications",
+                "Current medications (optional)",
+              )}
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
@@ -598,7 +746,10 @@ export default function PatientAnalysisPage({ session }) {
               onChange={(e) =>
                 setForm((p) => ({ ...p, allergies: e.target.value }))
               }
-              placeholder="Allergies (optional)"
+              placeholder={tr(
+                "analysisPage.allergies",
+                "Allergies (optional)",
+              )}
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
@@ -607,13 +758,19 @@ export default function PatientAnalysisPage({ session }) {
               onChange={(e) =>
                 setForm((p) => ({ ...p, notes: e.target.value }))
               }
-              placeholder="Additional details"
+              placeholder={tr(
+                "analysisPage.additionalDetails",
+                "Additional details",
+              )}
               className="mt-3 min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
             <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
               <Upload size={14} />
-              Upload docs/images (optional)
+              {tr(
+                "analysisPage.uploadDocs",
+                "Upload docs/images (optional)",
+              )}
               <input
                 type="file"
                 multiple
@@ -645,7 +802,12 @@ export default function PatientAnalysisPage({ session }) {
                 className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Sparkles size={14} />
-                {submitting ? "Analyzing..." : "Generate AI Diagnosis"}
+                {submitting
+                  ? tr("analysisPage.analyzing", "Analyzing...")
+                  : tr(
+                      "analysisPage.generateDiagnosis",
+                      "Generate AI Diagnosis",
+                    )}
               </button>
             </div>
 
@@ -658,14 +820,15 @@ export default function PatientAnalysisPage({ session }) {
             {activeCase?.ai && (
               <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-3">
                 <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
-                  AI Snapshot
+                  {tr("analysisPage.aiSnapshot", "AI Snapshot")}
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   {activeCase.ai.summary}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
-                    Urgency: {String(activeCase.ai.urgency || "").toUpperCase()}
+                    {tr("analysisPage.urgency", "Urgency")}: {" "}
+                    {String(activeCase.ai.urgency || "").toUpperCase()}
                   </span>
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
                     {activeCase.ai.recommendedDoctor}
@@ -693,7 +856,7 @@ export default function PatientAnalysisPage({ session }) {
                   wrapperClass=""
                 />
                 <p className="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">
-                  AI Conversation
+                  {tr("analysisPage.aiConversation", "AI Conversation")}
                 </p>
                 <motion.p
                   key={loadingTextIndex}
@@ -702,7 +865,7 @@ export default function PatientAnalysisPage({ session }) {
                   transition={{ duration: 0.45, ease: easeSmooth }}
                   className="mt-2 text-sm font-semibold text-slate-700"
                 >
-                  {LOADING_TEXTS[loadingTextIndex]}
+                  {loadingTexts[loadingTextIndex]}
                 </motion.p>
               </div>
             ) : chatOpen ? (
@@ -710,10 +873,13 @@ export default function PatientAnalysisPage({ session }) {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                      AI Conversation
+                      {tr("analysisPage.aiConversation", "AI Conversation")}
                     </p>
                     <p className="text-sm text-slate-600">
-                      Chat with AI before doctor handoff.
+                      {tr(
+                        "analysisPage.aiConversationSubtitle",
+                        "Chat with AI before doctor handoff.",
+                      )}
                     </p>
                   </div>
 
@@ -725,7 +891,7 @@ export default function PatientAnalysisPage({ session }) {
                         className="inline-flex items-center cursor-pointer gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]"
                       >
                         <Eye size={13} />
-                        View Reports
+                        {tr("analysisPage.viewReports", "View Reports")}
                       </button>
                     ) : null}
 
@@ -741,8 +907,8 @@ export default function PatientAnalysisPage({ session }) {
                     >
                       <Stethoscope size={13} />
                       {connectingDoctor
-                        ? "Finding doctors..."
-                        : "Connect to Doctor"}
+                        ? tr("analysisPage.findingDoctors", "Finding doctors...")
+                        : tr("analysisPage.connectDoctor", "Connect to Doctor")}
                     </button>
                   </div>
                 </div>
@@ -764,7 +930,7 @@ export default function PatientAnalysisPage({ session }) {
                         ) : (
                           <Clock3 size={12} />
                         )}
-                        {STATUS_LABEL[step]}
+                        {statusLabelMap[step]}
                       </span>
                     );
                   })}
@@ -772,10 +938,11 @@ export default function PatientAnalysisPage({ session }) {
 
                 {currentStatus === "doctor_assigned" && (
                   <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                    Doctor Assigned:{" "}
-                    {activeCase?.doctorFlow?.doctorName || "Pending"}
+                    {tr("analysisPage.doctorAssigned", "Doctor Assigned")}: {" "}
+                    {activeCase?.doctorFlow?.doctorName ||
+                      tr("analysisPage.pending", "Pending")}
                     {activeCase?.doctorFlow?.consultationId
-                      ? ` â€¢ Consultation ID: ${activeCase.doctorFlow.consultationId}`
+                      ? ` • ${tr("analysisPage.consultationId", "Consultation ID")}: ${activeCase.doctorFlow.consultationId}`
                       : ""}
                   </div>
                 )}
@@ -785,14 +952,17 @@ export default function PatientAnalysisPage({ session }) {
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                          Select a Doctor
+                          {tr("analysisPage.selectDoctor", "Select a Doctor")}
                         </p>
                         <p className="text-xs text-slate-600">
-                          Specialist:{" "}
+                          {tr("analysisPage.specialist", "Specialist")}: {" "}
                           {matchedSpecialistLabel ||
                             activeCase?.doctorFlow?.specialistLabel ||
                             activeCase?.doctorFlow?.specialist ||
-                            "General Physician"}
+                            tr(
+                              "analysisPage.generalPhysician",
+                              "General Physician",
+                            )}
                         </p>
                       </div>
                       <button
@@ -800,7 +970,7 @@ export default function PatientAnalysisPage({ session }) {
                         onClick={() => onCreateConsultation()}
                         className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700"
                       >
-                        Auto-Assign
+                        {tr("analysisPage.autoAssign", "Auto-Assign")}
                       </button>
                     </div>
 
@@ -815,11 +985,11 @@ export default function PatientAnalysisPage({ session }) {
                               {doctor.name}
                             </p>
                             <p className="text-xs text-slate-600">
-                              {doctor.specializationLabel ||
-                                doctor.specialization}{" "}
-                              â€¢ {doctor.experience} yrs â€¢ Cases handled{" "}
-                              {doctor.casesHandled ?? 0} â€¢ Rating{" "}
-                              {doctor.rating ?? 0}
+                              {doctor.specializationLabel || doctor.specialization} • {" "}
+                              {doctor.experience} {tr("analysisPage.yearsShort", "yrs")} • {" "}
+                              {tr("analysisPage.casesHandled", "Cases handled")} {" "}
+                              {doctor.casesHandled ?? 0} • {" "}
+                              {tr("analysisPage.rating", "Rating")} {doctor.rating ?? 0}
                             </p>
                           </div>
                           <button
@@ -827,7 +997,7 @@ export default function PatientAnalysisPage({ session }) {
                             onClick={() => onCreateConsultation(doctor._id)}
                             className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white"
                           >
-                            Select
+                            {tr("analysisPage.select", "Select")}
                           </button>
                         </div>
                       ))}
@@ -837,7 +1007,10 @@ export default function PatientAnalysisPage({ session }) {
 
                 {consultationLoading ? (
                   <p className="mt-3 text-sm font-medium text-blue-700">
-                    Creating consultation request...
+                    {tr(
+                      "analysisPage.creatingConsultation",
+                      "Creating consultation request...",
+                    )}
                   </p>
                 ) : null}
 
@@ -849,14 +1022,18 @@ export default function PatientAnalysisPage({ session }) {
 
                 {consultationInfo?.status ? (
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                    Consultation status: {consultationInfo.status}
+                    {tr("analysisPage.consultationStatus", "Consultation status")}: {" "}
+                    {consultationInfo.status}
                   </p>
                 ) : null}
 
                 <div className="mt-4 h-107.5 overflow-y-auto rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-3">
                   {!activeCase ? (
                     <div className="grid h-full place-items-center text-center text-sm text-slate-500">
-                      Submit intake details to start AI chat.
+                      {tr(
+                        "analysisPage.submitIntakeToStart",
+                        "Submit intake details to start AI chat.",
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -880,7 +1057,9 @@ export default function PatientAnalysisPage({ session }) {
                                 ) : (
                                   <UserRound size={11} />
                                 )}
-                                {isAi ? "AI" : "You"}
+                                {isAi
+                                  ? tr("analysisPage.ai", "AI")
+                                  : tr("analysisPage.you", "You")}
                               </div>
                               <p>{msg.text}</p>
                             </div>
@@ -904,8 +1083,14 @@ export default function PatientAnalysisPage({ session }) {
                     disabled={!activeCase}
                     placeholder={
                       activeCase
-                        ? "Ask AI anything about your case..."
-                        : "Submit intake to enable chat"
+                        ? tr(
+                            "analysisPage.askAiPlaceholder",
+                            "Ask AI anything about your case...",
+                          )
+                        : tr(
+                            "analysisPage.submitIntakeToEnable",
+                            "Submit intake to enable chat",
+                          )
                     }
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none disabled:bg-slate-50"
                   />
@@ -915,7 +1100,7 @@ export default function PatientAnalysisPage({ session }) {
                     className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
                   >
                     <Send size={13} />
-                    Send
+                    {tr("analysisPage.send", "Send")}
                   </button>
                 </div>
               </>
@@ -928,7 +1113,7 @@ export default function PatientAnalysisPage({ session }) {
                     className="mb-3 inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-[0_8px_18px_-10px_rgba(16,185,129,0.75)]"
                   >
                     <Eye size={13} />
-                    View Reports
+                    {tr("analysisPage.viewReports", "View Reports")}
                   </button>
                 ) : null}
                 <MessageCircle size={30} className="text-slate-400" />
@@ -944,10 +1129,12 @@ export default function PatientAnalysisPage({ session }) {
           className="mt-4 rounded-3xl border border-white/70 bg-white/75 p-4 shadow-[0_22px_55px_-35px_rgba(15,23,42,0.45)] backdrop-blur-2xl sm:p-5"
         >
           <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-            Recent Analysis Cases
+            {tr("analysisPage.recentCases", "Recent Analysis Cases")}
           </p>
           {!history.length ? (
-            <p className="mt-2 text-sm text-slate-500">No history yet.</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {tr("analysisPage.noHistory", "No history yet.")}
+            </p>
           ) : (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {history.map((row) => (
@@ -964,15 +1151,17 @@ export default function PatientAnalysisPage({ session }) {
                   }}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
                 >
-                  <p className="text-sm font-semibold text-slate-900 line-clamp-1">
-                    {row.form?.symptoms || "Untitled case"}
+                  <p className="line-clamp-1 text-sm font-semibold text-slate-900">
+                    {row.form?.symptoms ||
+                      tr("analysisPage.untitledCase", "Untitled case")}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
                     {formatDateTime(row.createdAt)}
                   </p>
                   <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
                     <Stethoscope size={12} />
-                    {row.ai?.recommendedDoctor || "General Physician"}
+                    {row.ai?.recommendedDoctor ||
+                      tr("analysisPage.generalPhysician", "General Physician")}
                   </p>
                 </button>
               ))}
@@ -987,10 +1176,11 @@ export default function PatientAnalysisPage({ session }) {
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
               <div>
                 <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                  AI Structured Report
+                  {tr("analysisPage.structuredReport", "AI Structured Report")}
                 </p>
                 <h3 className="text-base font-semibold text-slate-900">
-                  {activeCase.form?.symptoms || "Patient analysis"}
+                  {activeCase.form?.symptoms ||
+                    tr("analysisPage.patientAnalysis", "Patient analysis")}
                 </h3>
               </div>
               <button
@@ -1004,7 +1194,7 @@ export default function PatientAnalysisPage({ session }) {
             <div className="max-h-[calc(88vh-68px)] space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
               <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  Summary
+                  {tr("analysisPage.summary", "Summary")}
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   {activeCase.ai.report.summary}
@@ -1013,7 +1203,7 @@ export default function PatientAnalysisPage({ session }) {
 
               <section className="rounded-2xl border border-slate-200 bg-white p-3">
                 <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  Possible Conditions
+                  {tr("analysisPage.possibleConditions", "Possible Conditions")}
                 </p>
                 <div className="mt-2 space-y-2">
                   {(
@@ -1028,7 +1218,7 @@ export default function PatientAnalysisPage({ session }) {
                         {item.name}
                       </p>
                       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">
-                        Likelihood: {item.likelihood}
+                        {tr("analysisPage.likelihood", "Likelihood")}: {item.likelihood}
                       </p>
                       <p className="mt-1 text-sm text-slate-600">
                         {item.whyItFits}
@@ -1041,7 +1231,7 @@ export default function PatientAnalysisPage({ session }) {
               <section className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-white p-3">
                   <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                    Possible Causes
+                    {tr("analysisPage.possibleCauses", "Possible Causes")}
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700">
                     {(
@@ -1055,10 +1245,13 @@ export default function PatientAnalysisPage({ session }) {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-3">
                   <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                    Emergency Assessment
+                    {tr(
+                      "analysisPage.emergencyAssessment",
+                      "Emergency Assessment",
+                    )}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-rose-700">
-                    Level:{" "}
+                    {tr("analysisPage.level", "Level")}: {" "}
                     {String(
                       activeCase.ai.report.emergencyAssessment?.level ||
                         "moderate",
@@ -1069,7 +1262,8 @@ export default function PatientAnalysisPage({ session }) {
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700">
                     {(
-                      activeCase.ai.report.emergencyAssessment?.redFlags || []
+                      activeCase.ai.report.emergencyAssessment?.redFlags ||
+                      []
                     ).map((item) => (
                       <li key={item}>{item}</li>
                     ))}
@@ -1079,10 +1273,10 @@ export default function PatientAnalysisPage({ session }) {
 
               <section className="rounded-2xl border border-slate-200 bg-white p-3">
                 <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  Resolution Plan
+                  {tr("analysisPage.resolutionPlan", "Resolution Plan")}
                 </p>
                 <p className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Immediate Steps
+                  {tr("analysisPage.immediateSteps", "Immediate Steps")}
                 </p>
                 <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
                   {(
@@ -1094,7 +1288,7 @@ export default function PatientAnalysisPage({ session }) {
                 </ul>
 
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Home Care
+                  {tr("analysisPage.homeCare", "Home Care")}
                 </p>
                 <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
                   {(
@@ -1105,7 +1299,7 @@ export default function PatientAnalysisPage({ session }) {
                 </ul>
 
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Tests To Consider
+                  {tr("analysisPage.testsToConsider", "Tests To Consider")}
                 </p>
                 <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
                   {(
@@ -1117,7 +1311,10 @@ export default function PatientAnalysisPage({ session }) {
                 </ul>
 
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Specialists To Consult
+                  {tr(
+                    "analysisPage.specialistsToConsult",
+                    "Specialists To Consult",
+                  )}
                 </p>
                 <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-slate-700">
                   {(
@@ -1129,7 +1326,9 @@ export default function PatientAnalysisPage({ session }) {
                 </ul>
 
                 <p className="mt-3 text-sm text-slate-700">
-                  <span className="font-semibold">Follow up:</span>{" "}
+                  <span className="font-semibold">
+                    {tr("analysisPage.followUp", "Follow up")}:
+                  </span>{" "}
                   {activeCase.ai.report.recommendedResolution?.followUpWindow}
                 </p>
               </section>

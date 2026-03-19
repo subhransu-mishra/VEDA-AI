@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   X,
@@ -14,13 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-
-const navItems = [
-  { label: "Home", id: "home", icon: Home },
-  { label: "About", id: "about", icon: Info },
-  { label: "Features", id: "features", icon: Zap },
-  { label: "Reviews", id: "reviews", icon: Star },
-];
+import { useTranslation } from "react-i18next";
 
 const easeSmooth = [0.4, 0, 0.2, 1];
 
@@ -28,7 +22,12 @@ const drawerVariants = {
   closed: { x: "100%", transition: { duration: 0.5, ease: [0.7, 0, 0.3, 1] } },
   open: {
     x: 0,
-    transition: { duration: 0.7, ease: easeSmooth, staggerChildren: 0.08, delayChildren: 0.1 },
+    transition: {
+      duration: 0.7,
+      ease: easeSmooth,
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
+    },
   },
 };
 
@@ -38,9 +37,11 @@ const linkVariants = {
 };
 
 function statusStyle(status) {
-  if (status === "verified") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (status === "verified")
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (status === "rejected") return "bg-rose-50 text-rose-700 border-rose-200";
-  if (status === "pending") return "bg-amber-50 text-amber-700 border-amber-200";
+  if (status === "pending")
+    return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-slate-50 text-slate-600 border-slate-200";
 }
 
@@ -52,8 +53,19 @@ export default function Navbar({
   onOpenSignup,
   onGetStarted,
 }) {
+  const { t, i18n } = useTranslation();
+  const tr = (key, defaultValue, options = {}) =>
+    t(key, { defaultValue, ...options });
+
   const navigate = useNavigate();
   const location = useLocation();
+
+  const navItems = [
+    { label: tr("common.home", "Home"), id: "home", icon: Home },
+    { label: tr("common.about", "About"), id: "about", icon: Info },
+    { label: tr("common.features", "Features"), id: "features", icon: Zap },
+    { label: tr("common.reviews", "Reviews"), id: "reviews", icon: Star },
+  ];
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -62,23 +74,28 @@ export default function Navbar({
   const isDoctor = session?.role === "doctor";
   const isAdmin = session?.role === "admin";
   const isPatient = session?.role === "patient";
-  const doctorNeedsVerification = isDoctor && doctorVerificationStatus !== "verified";
+  const doctorNeedsVerification =
+    isDoctor && doctorVerificationStatus !== "verified";
   const showGetStarted = isLoggedIn && isPatient;
 
   const dashboardPath = useMemo(
-    () => (session?.role === "doctor" ? "/dashboard/doctor" : "/dashboard/patient"),
-    [session?.role]
+    () =>
+      session?.role === "doctor" ? "/dashboard/doctor" : "/dashboard/patient",
+    [session?.role],
   );
 
   const modalType = useMemo(
     () => new URLSearchParams(location.search).get("modal"),
-    [location.search]
+    [location.search],
   );
-  const loginActive = !isLoggedIn && location.pathname === "/" && modalType === "login";
-  const signupActive = !isLoggedIn && location.pathname === "/" && modalType === "signup";
+  const loginActive =
+    !isLoggedIn && location.pathname === "/" && modalType === "login";
+  const signupActive =
+    !isLoggedIn && location.pathname === "/" && modalType === "signup";
 
   useEffect(() => {
-    document.body.style.overflow = menuOpen || showLogoutConfirm ? "hidden" : "";
+    document.body.style.overflow =
+      menuOpen || showLogoutConfirm ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
@@ -90,12 +107,16 @@ export default function Navbar({
     if (location.pathname !== "/") {
       navigate("/");
       setTimeout(() => {
-        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document
+          .getElementById(id)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 140);
       return;
     }
 
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const goPrimaryAuthRoute = () => {
@@ -115,7 +136,11 @@ export default function Navbar({
     navigate(dashboardPath);
   };
 
-  const primaryLabel = isAdmin ? "Admin Panel" : doctorNeedsVerification ? "Verification" : "Dashboard";
+  const primaryLabel = isAdmin
+    ? tr("common.adminPanel", "Admin Panel")
+    : doctorNeedsVerification
+      ? tr("common.verification", "Verification")
+      : tr("common.dashboard", "Dashboard");
 
   return (
     <>
@@ -134,7 +159,10 @@ export default function Navbar({
                 <span className="text-lg font-serif italic">V</span>
               </div>
               <span className="text-lg font-bold tracking-tighter text-slate-900">
-                VEDA<span className="text-slate-400 italic font-light text-xs ml-0.5">AI</span>
+                VEDA
+                <span className="text-slate-400 italic font-light text-xs ml-0.5">
+                  AI
+                </span>
               </span>
             </button>
           </div>
@@ -152,54 +180,55 @@ export default function Navbar({
           </nav>
 
           <div className="flex justify-end items-center gap-2 pointer-events-auto">
+            <select
+              value={i18n.language}
+              onChange={(e) => i18n.changeLanguage(e.target.value)}
+              className="hidden sm:block rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700 outline-none"
+            >
+              <option value="en">EN</option>
+              <option value="hi">HI</option>
+              <option value="or">OR</option>
+            </select>
+
             <div className="hidden lg:flex items-center gap-1 bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-full p-1 shadow-sm">
               {!isLoggedIn ? (
                 <>
                   <button
                     onClick={() => onOpenLogin?.("patient")}
-                    className={`px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${
-                      loginActive ? "text-blue-600" : "text-slate-900"
-                    }`}
+                    className={`px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${loginActive ? "text-blue-600" : "text-slate-900"}`}
                   >
-                    Login
+                    {tr("common.login", "Login")}
                   </button>
                   <button
                     onClick={onOpenSignup}
-                    className={`px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] rounded-full transition-colors ${
-                      signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"
-                    }`}
+                    className={`px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] rounded-full transition-colors ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
                   >
-                    Sign up
+                    {tr("common.signUp", "Sign up")}
                   </button>
                 </>
               ) : (
                 <div className="flex items-center gap-1">
                   {isDoctor && (
                     <span
-                      className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] ${statusStyle(
-                        doctorVerificationStatus
-                      )}`}
+                      className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] ${statusStyle(doctorVerificationStatus)}`}
                     >
                       {doctorVerificationStatus}
                     </span>
                   )}
-
                   {isAdmin && (
                     <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-indigo-700">
-                      admin
+                      {tr("common.admin", "admin")}
                     </span>
                   )}
-
                   {showGetStarted && (
                     <button
                       onClick={onGetStarted}
                       className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700"
                     >
                       <Sparkles size={12} />
-                      Get Started
+                      {tr("common.getStarted", "Get Started")}
                     </button>
                   )}
-
                   <button
                     onClick={goPrimaryAuthRoute}
                     className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600"
@@ -210,12 +239,11 @@ export default function Navbar({
                     onClick={() => setShowLogoutConfirm(true)}
                     className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-red-500"
                   >
-                    Logout
+                    {tr("common.logout", "Logout")}
                   </button>
                 </div>
               )}
             </div>
-
             <button
               onClick={() => setMenuOpen(true)}
               className="lg:hidden h-10 w-10 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-900 shadow-sm"
@@ -244,12 +272,27 @@ export default function Navbar({
               className="fixed right-0 top-0 z-[1001] h-full w-[82%] max-w-[360px] bg-white lg:hidden flex flex-col"
             >
               <div className="flex items-center justify-between p-8 border-b border-slate-50">
-                <span className="text-xs font-bold tracking-[0.3em] uppercase text-slate-400">Navigation</span>
-                <button onClick={() => setMenuOpen(false)} className="text-slate-400">
+                <span className="text-xs font-bold tracking-[0.3em] uppercase text-slate-400">
+                  {tr("common.navigation", "Navigation")}
+                </span>
+                <button
+                  onClick={() => setMenuOpen(false)}
+                  className="text-slate-400"
+                >
                   <X size={24} />
                 </button>
               </div>
-
+              <div className="px-4 pt-4">
+                <select
+                  value={i18n.language}
+                  onChange={(e) => i18n.changeLanguage(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-700 outline-none"
+                >
+                  <option value="en">English</option>
+                  <option value="hi">Hindi</option>
+                  <option value="or">Odia</option>
+                </select>
+              </div>
               <div className="flex flex-col py-6 px-4">
                 {navItems.map((item) => (
                   <motion.button
@@ -259,15 +302,25 @@ export default function Navbar({
                     className="flex items-center justify-between p-4 rounded-2xl group"
                   >
                     <div className="flex items-center gap-4">
-                      <item.icon size={20} className="text-slate-300 group-hover:text-[#0a1128]" />
-                      <span className="text-lg font-medium text-slate-600 group-hover:text-slate-900">{item.label}</span>
+                      <item.icon
+                        size={20}
+                        className="text-slate-300 group-hover:text-[#0a1128]"
+                      />
+                      <span className="text-lg font-medium text-slate-600 group-hover:text-slate-900">
+                        {item.label}
+                      </span>
                     </div>
-                    <ChevronRight size={16} className="text-slate-200 group-hover:text-slate-900" />
+                    <ChevronRight
+                      size={16}
+                      className="text-slate-200 group-hover:text-slate-900"
+                    />
                   </motion.button>
                 ))}
               </div>
-
-              <motion.div variants={linkVariants} className="mt-auto p-6 bg-slate-50/80 space-y-3">
+              <motion.div
+                variants={linkVariants}
+                className="mt-auto p-6 bg-slate-50/80 space-y-3"
+              >
                 {!isLoggedIn ? (
                   <>
                     <button
@@ -275,42 +328,36 @@ export default function Navbar({
                         setMenuOpen(false);
                         onOpenLogin?.("patient");
                       }}
-                      className={`w-full border py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest ${
-                        loginActive
-                          ? "bg-blue-50 border-blue-200 text-blue-700"
-                          : "bg-white border-slate-200 text-slate-900"
-                      }`}
+                      className={`w-full border py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest ${loginActive ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-slate-200 text-slate-900"}`}
                     >
-                      Login
+                      {tr("common.login", "Login")}
                     </button>
                     <button
                       onClick={() => {
                         setMenuOpen(false);
                         onOpenSignup?.();
                       }}
-                      className={`w-full py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/10 ${
-                        signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"
-                      }`}
+                      className={`w-full py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/10 ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
                     >
-                      Sign Up
+                      {tr("common.signUp", "Sign up")}
                     </button>
                   </>
                 ) : (
                   <>
                     {isDoctor && (
-                      <div className={`flex items-center justify-center gap-2 rounded-2xl border py-2 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusStyle(doctorVerificationStatus)}`}>
+                      <div
+                        className={`flex items-center justify-center gap-2 rounded-2xl border py-2 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusStyle(doctorVerificationStatus)}`}
+                      >
                         <ShieldCheck size={14} />
                         {doctorVerificationStatus}
                       </div>
                     )}
-
                     {isAdmin && (
                       <div className="flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
                         <ShieldCheck size={14} />
-                        admin
+                        {tr("common.admin", "admin")}
                       </div>
                     )}
-
                     {showGetStarted && (
                       <button
                         onClick={() => {
@@ -320,10 +367,9 @@ export default function Navbar({
                         className="w-full bg-emerald-50 text-emerald-700 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
                       >
                         <Sparkles size={14} />
-                        Get Started
+                        {tr("common.getStarted", "Get Started")}
                       </button>
                     )}
-
                     <button
                       onClick={goPrimaryAuthRoute}
                       className="w-full bg-[#0a1128] text-white py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
@@ -337,7 +383,7 @@ export default function Navbar({
                       }}
                       className="w-full bg-red-50 text-red-500 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
                     >
-                      <LogOut size={14} /> Sign Out
+                      <LogOut size={14} /> {tr("common.logout", "Logout")}
                     </button>
                   </>
                 )}
@@ -366,24 +412,30 @@ export default function Navbar({
               <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
                 <LogOut size={28} />
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Wait!</h3>
-              <p className="text-slate-500 mt-2 text-sm">Are you sure you want to log out of your portal?</p>
-
+              <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
+                {tr("navbar.confirmLogoutTitle", "Wait!")}
+              </h3>
+              <p className="text-slate-500 mt-2 text-sm">
+                {tr(
+                  "navbar.confirmLogoutText",
+                  "Are you sure you want to log out of your portal?",
+                )}
+              </p>
               <div className="mt-10 flex flex-col gap-3">
                 <button
                   onClick={() => {
                     onLogout?.();
                     setShowLogoutConfirm(false);
                   }}
-                  className="w-full py-4 cursor-pointer bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-red-600 transition-colors"
+                  className="w-full py-4 bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-red-600 transition-colors"
                 >
-                  Yes, Sign Out
+                  {tr("common.yesSignOut", "Yes, Sign Out")}
                 </button>
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full py-4 cursor-pointer bg-slate-100 text-slate-400 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-slate-200 transition-colors"
+                  className="w-full py-4 bg-slate-100 text-slate-400 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em]"
                 >
-                  Stay Logged In
+                  {tr("common.stayLoggedIn", "Stay Logged In")}
                 </button>
               </div>
             </motion.div>

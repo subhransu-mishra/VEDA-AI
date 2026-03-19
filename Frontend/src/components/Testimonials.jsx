@@ -5,114 +5,40 @@ import {
   useSpring,
   useTransform,
 } from "framer-motion";
-import { Quote, ShieldCheck } from "lucide-react";
+import { Quote } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const easeSmooth = [0.22, 1, 0.36, 1];
 
-const testimonials = [
-  {
-    id: "t1",
-    name: "Riya Sen",
-    role: "Early user",
-    quote:
-      "The guided flow feels much less intimidating than trying to explain everything from scratch.",
-    avatar: "/Timg1.png",
-    initials: "RS",
-    tag: "Clarity",
-    accentColor: "#2F78D9",
-    bgAccent: "rgba(47,120,217,0.08)",
-  },
-  {
-    id: "t2",
-    name: "Arjun Patel",
-    role: "Pilot feedback",
-    quote:
-      "This feels safer for people who hesitate to talk openly about sensitive symptoms.",
-    avatar: "/Timg2.png",
-    initials: "AP",
-    tag: "Privacy",
-    accentColor: "#68B2A0",
-    bgAccent: "rgba(104,178,160,0.08)",
-  },
-  {
-    id: "t3",
-    name: "Meera Das",
-    role: "Prototype review",
-    quote:
-      "The summary makes the next doctor conversation feel far more prepared.",
-    avatar: "/Timg3.png",
-    initials: "MD",
-    tag: "Prepared",
-    accentColor: "#5B9FFF",
-    bgAccent: "rgba(91,159,255,0.08)",
-  },
-  {
-    id: "t4",
-    name: "Kabir Roy",
-    role: "Mentor reaction",
-    quote:
-      "It reduces hesitation before care even begins, and that is what makes it different.",
-    avatar: "/Timg4.png",
-    initials: "KR",
-    tag: "Trust",
-    accentColor: "#2F78D9",
-    bgAccent: "rgba(47,120,217,0.08)",
-  },
-  {
-    id: "t5",
-    name: "Sneha Paul",
-    role: "Demo feedback",
-    quote:
-      "A private-first experience can completely change how honestly patients respond.",
-    avatar: "/Timg1.png",
-    initials: "SP",
-    tag: "Comfort",
-    accentColor: "#68B2A0",
-    bgAccent: "rgba(104,178,160,0.08)",
-  },
-  {
-    id: "t6",
-    name: "Rahul Nair",
-    role: "Usability note",
-    quote:
-      "The product feels calm and structured instead of overwhelming or clinical.",
-    avatar: "/Timg2.png",
-    initials: "RN",
-    tag: "Calm",
-    accentColor: "#5B9FFF",
-    bgAccent: "rgba(91,159,255,0.08)",
-  },
-];
-
 const tagIcons = {
-  Clarity: (
+  clarity: (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.35-4.35" />
     </svg>
   ),
-  Privacy: (
+  privacy: (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   ),
-  Prepared: (
+  prepared: (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 11l3 3L22 4" />
       <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
     </svg>
   ),
-  Trust: (
+  trust: (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
     </svg>
   ),
-  Comfort: (
+  comfort: (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
     </svg>
   ),
-  Calm: (
+  calm: (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <path d="M8 14s1.5 2 4 2 4-2 4-2" />
@@ -219,7 +145,7 @@ function TestimonialCard({ item }) {
               border: `1px solid ${item.accentColor}22`,
             }}
           >
-            {tagIcons[item.tag]}
+            {tagIcons[item.tagKey]}
             {item.tag}
           </span>
 
@@ -292,12 +218,109 @@ function TestimonialCard({ item }) {
 }
 
 export default function Testimonials() {
+  const { t } = useTranslation();
   const sectionRef = useRef(null);
 
-  const topRow = useMemo(() => [...testimonials, ...testimonials], []);
+  const testimonials = useMemo(
+    () => [
+      {
+        id: "t1",
+        name: "Riya Sen",
+        role: t("testimonials.cards.t1.role", { defaultValue: "Early user" }),
+        quote: t("testimonials.cards.t1.quote", {
+          defaultValue:
+            "The guided flow feels much less intimidating than trying to explain everything from scratch.",
+        }),
+        avatar: "/Timg1.png",
+        initials: "RS",
+        tag: t("testimonials.cards.t1.tag", { defaultValue: "Clarity" }),
+        tagKey: "clarity",
+        accentColor: "#2F78D9",
+        bgAccent: "rgba(47,120,217,0.08)",
+      },
+      {
+        id: "t2",
+        name: "Arjun Patel",
+        role: t("testimonials.cards.t2.role", { defaultValue: "Pilot feedback" }),
+        quote: t("testimonials.cards.t2.quote", {
+          defaultValue:
+            "This feels safer for people who hesitate to talk openly about sensitive symptoms.",
+        }),
+        avatar: "/Timg2.png",
+        initials: "AP",
+        tag: t("testimonials.cards.t2.tag", { defaultValue: "Privacy" }),
+        tagKey: "privacy",
+        accentColor: "#68B2A0",
+        bgAccent: "rgba(104,178,160,0.08)",
+      },
+      {
+        id: "t3",
+        name: "Meera Das",
+        role: t("testimonials.cards.t3.role", { defaultValue: "Prototype review" }),
+        quote: t("testimonials.cards.t3.quote", {
+          defaultValue:
+            "The summary makes the next doctor conversation feel far more prepared.",
+        }),
+        avatar: "/Timg3.png",
+        initials: "MD",
+        tag: t("testimonials.cards.t3.tag", { defaultValue: "Prepared" }),
+        tagKey: "prepared",
+        accentColor: "#5B9FFF",
+        bgAccent: "rgba(91,159,255,0.08)",
+      },
+      {
+        id: "t4",
+        name: "Kabir Roy",
+        role: t("testimonials.cards.t4.role", { defaultValue: "Mentor reaction" }),
+        quote: t("testimonials.cards.t4.quote", {
+          defaultValue:
+            "It reduces hesitation before care even begins, and that is what makes it different.",
+        }),
+        avatar: "/Timg4.png",
+        initials: "KR",
+        tag: t("testimonials.cards.t4.tag", { defaultValue: "Trust" }),
+        tagKey: "trust",
+        accentColor: "#2F78D9",
+        bgAccent: "rgba(47,120,217,0.08)",
+      },
+      {
+        id: "t5",
+        name: "Sneha Paul",
+        role: t("testimonials.cards.t5.role", { defaultValue: "Demo feedback" }),
+        quote: t("testimonials.cards.t5.quote", {
+          defaultValue:
+            "A private-first experience can completely change how honestly patients respond.",
+        }),
+        avatar: "/Timg1.png",
+        initials: "SP",
+        tag: t("testimonials.cards.t5.tag", { defaultValue: "Comfort" }),
+        tagKey: "comfort",
+        accentColor: "#68B2A0",
+        bgAccent: "rgba(104,178,160,0.08)",
+      },
+      {
+        id: "t6",
+        name: "Rahul Nair",
+        role: t("testimonials.cards.t6.role", { defaultValue: "Usability note" }),
+        quote: t("testimonials.cards.t6.quote", {
+          defaultValue:
+            "The product feels calm and structured instead of overwhelming or clinical.",
+        }),
+        avatar: "/Timg2.png",
+        initials: "RN",
+        tag: t("testimonials.cards.t6.tag", { defaultValue: "Calm" }),
+        tagKey: "calm",
+        accentColor: "#5B9FFF",
+        bgAccent: "rgba(91,159,255,0.08)",
+      },
+    ],
+    [t]
+  );
+
+  const topRow = useMemo(() => [...testimonials, ...testimonials], [testimonials]);
   const bottomRow = useMemo(
     () => [...testimonials.slice().reverse(), ...testimonials.slice().reverse()],
-    []
+    [testimonials]
   );
 
   const { scrollYProgress } = useScroll({
@@ -496,7 +519,7 @@ export default function Testimonials() {
                   background: "linear-gradient(90deg, #2F78D9, transparent)",
                 }}
               />
-              <span className="section-label">Testimonials</span>
+              <span className="section-label">{t("testimonials.sectionLabel", { defaultValue: "Testimonials" })}</span>
             </div>
 
             <div className="grid items-end gap-8 lg:grid-cols-[1fr_1fr] lg:gap-16">
@@ -505,9 +528,9 @@ export default function Testimonials() {
                   className="heading-display"
                   style={{ fontSize: "clamp(2.4rem, 4.5vw, 4rem)" }}
                 >
-                  Real trust starts
+                  {t("testimonials.titleLine1", { defaultValue: "Real trust starts" })}
                   <br />
-                  before the consultation.
+                  {t("testimonials.titleLine2", { defaultValue: "before the consultation." })}
                 </h2>
               </div>
 
@@ -516,15 +539,17 @@ export default function Testimonials() {
                   className="body-text"
                   style={{ fontSize: "clamp(14px, 1.1vw, 16px)", maxWidth: 460 }}
                 >
-                  What stands out most is not only the guidance, but how the
-                  experience feels calmer, safer, and easier to trust from the very first step.
+                  {t("testimonials.body", {
+                    defaultValue:
+                      "What stands out most is not only the guidance, but how the experience feels calmer, safer, and easier to trust from the very first step.",
+                  })}
                 </p>
 
                 <div className="mt-7 flex flex-wrap gap-3">
                   {[
-                    { label: "Users interviewed", value: "40+" },
-                    { label: "Avg. satisfaction", value: "4.8/5" },
-                    { label: "Pilot rounds", value: "3" },
+                    { label: t("testimonials.stats.interviewed", { defaultValue: "Users interviewed" }), value: "40+" },
+                    { label: t("testimonials.stats.satisfaction", { defaultValue: "Avg. satisfaction" }), value: "4.8/5" },
+                    { label: t("testimonials.stats.pilotRounds", { defaultValue: "Pilot rounds" }), value: "3" },
                   ].map((s) => (
                     <div
                       key={s.label}
@@ -629,7 +654,7 @@ export default function Testimonials() {
                   letterSpacing: "0.01em",
                 }}
               >
-                All feedback is anonymised and shared with consent
+                {t("testimonials.consentNote", { defaultValue: "All feedback is anonymised and shared with consent" })}
               </span>
             </div>
           </div>
