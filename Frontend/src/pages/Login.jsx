@@ -137,9 +137,15 @@ export default function Login({ onLogin }) {
       <div className="pointer-events-none absolute -right-20 bottom-6 h-80 w-80 rounded-full bg-[#68B2A0]/20 blur-3xl" />
 
       <section className="relative mx-auto w-full max-w-md rounded-[28px] border border-white/60 bg-white/50 p-6 shadow-[0_30px_100px_-40px_rgba(35,95,168,0.55)] backdrop-blur-2xl sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2F78D9]">VedaAI</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#17363D]">Login</h1>
-        <p className="mt-1 text-sm text-[#667D86]">Access your secure healthcare dashboard</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2F78D9]">
+          VedaAI
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#17363D]">
+          Login
+        </h1>
+        <p className="mt-1 text-sm text-[#667D86]">
+          Access your secure healthcare dashboard
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/70 bg-white/45 p-1.5">
@@ -187,7 +193,9 @@ export default function Login({ onLogin }) {
             className="w-full rounded-xl border border-white/70 bg-white/70 px-4 py-3 text-[#17363D] outline-none placeholder:text-[#88a1ad] focus:border-[#2F78D9]"
           />
 
-          {error ? <p className="text-sm font-medium text-red-500">{error}</p> : null}
+          {error ? (
+            <p className="text-sm font-medium text-red-500">{error}</p>
+          ) : null}
 
           <button
             type="submit"
