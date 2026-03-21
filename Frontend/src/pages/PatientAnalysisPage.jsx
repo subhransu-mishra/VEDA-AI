@@ -106,7 +106,10 @@ export default function PatientAnalysisPage({ session }) {
         "analysisPage.status.doctorRequested",
         "Doctor requested",
       ),
-      doctor_assigned: tr("analysisPage.status.doctorAssigned", "Doctor assigned"),
+      doctor_assigned: tr(
+        "analysisPage.status.doctorAssigned",
+        "Doctor assigned",
+      ),
       consultation_active: tr(
         "analysisPage.status.consultationActive",
         "Consultation active",
@@ -183,6 +186,8 @@ export default function PatientAnalysisPage({ session }) {
   const [consultationLoading, setConsultationLoading] = useState(false);
   const [consultationError, setConsultationError] = useState("");
   const [consultationInfo, setConsultationInfo] = useState(null);
+  const [doctorReportOpen, setDoctorReportOpen] = useState(false);
+  const [doctorProgressIndex, setDoctorProgressIndex] = useState(0);
 
   const history = useMemo(() => {
     void refreshTick;
@@ -196,6 +201,14 @@ export default function PatientAnalysisPage({ session }) {
     "consultation_active",
     "completed",
   ].includes(currentStatus);
+  const doctorStructuredReport =
+    activeCase?.doctorFlow?.doctorStructuredReport || null;
+  const showDoctorProgress =
+    Boolean(activeCase?.doctorFlow?.consultationId) &&
+    !doctorStructuredReport &&
+    ["doctor_requested", "doctor_assigned", "consultation_active"].includes(
+      currentStatus,
+    );
 
   useEffect(() => {
     if (!submitting) {
@@ -209,6 +222,112 @@ export default function PatientAnalysisPage({ session }) {
 
     return () => clearInterval(intervalId);
   }, [submitting, loadingTexts]);
+
+  useEffect(() => {
+    if (!showDoctorProgress) {
+      setDoctorProgressIndex(0);
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setDoctorProgressIndex((prev) => (prev + 1) % 3);
+    }, 1800);
+
+    return () => clearInterval(intervalId);
+  }, [showDoctorProgress]);
+
+  useEffect(() => {
+    const consultationId = activeCase?.doctorFlow?.consultationId;
+    if (!consultationId || !session?.token) return;
+
+    let mounted = true;
+
+    const mapConsultationStatus = (status) => {
+      if (status === "completed") return "completed";
+      if (status === "accepted") return "consultation_active";
+      if (status === "pending") return "doctor_assigned";
+      if (status === "rejected") return "doctor_requested";
+      return "doctor_assigned";
+    };
+
+    const syncConsultation = async () => {
+      try {
+        const response = await analysisApi.getConsultationById({
+          token: session.token,
+          consultationId,
+        });
+
+        if (!mounted) return;
+        const consultation = response?.consultation;
+        if (!consultation) return;
+
+        const nextStatus = mapConsultationStatus(consultation.status);
+        const doctorName =
+          consultation?.doctorId?.fullName ||
+          activeCase?.doctorFlow?.doctorName ||
+          "";
+
+        const updated = updateAnalysisCaseById(activeCase.id, (prev) => {
+          const prevFlow = prev.doctorFlow || {};
+          const lastTimelineStatus = prevFlow.timeline?.length
+            ? prevFlow.timeline[prevFlow.timeline.length - 1]?.status
+            : "";
+
+          return {
+            ...prev,
+            doctorFlow: {
+              ...prevFlow,
+              status: nextStatus,
+              doctorName,
+              consultationId,
+              doctorResponse: consultation?.doctorResponse || null,
+              doctorStructuredReport:
+                consultation?.doctorStructuredReport ||
+                prevFlow.doctorStructuredReport ||
+                null,
+              timeline:
+                lastTimelineStatus === nextStatus
+                  ? prevFlow.timeline || []
+                  : [
+                      ...(prevFlow.timeline || []),
+                      {
+                        status: nextStatus,
+                        label: statusLabelMap[nextStatus],
+                        at: new Date().toISOString(),
+                      },
+                    ],
+            },
+          };
+        });
+
+        if (updated) {
+          setActiveCase(updated);
+          refresh();
+        }
+
+        if (consultation.status === "completed") {
+          setConsultationInfo(consultation);
+        }
+      } catch {
+        // Silent polling failure to avoid noisy UI.
+      }
+    };
+
+    void syncConsultation();
+    const interval = setInterval(() => {
+      void syncConsultation();
+    }, 6000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [
+    activeCase?.id,
+    activeCase?.doctorFlow?.consultationId,
+    session?.token,
+    statusLabelMap,
+  ]);
 
   const refresh = () => setRefreshTick((v) => v + 1);
 
@@ -244,10 +363,13 @@ export default function PatientAnalysisPage({ session }) {
         ...(prev.doctorFlow || {}),
         ...extra,
         status,
-        timeline: [
-          ...(prev.doctorFlow?.timeline || []),
-          { status, label: statusLabelMap[status], at: now },
-        ],
+        timeline:
+          (prev.doctorFlow?.timeline || []).slice(-1)[0]?.status === status
+            ? prev.doctorFlow?.timeline || []
+            : [
+                ...(prev.doctorFlow?.timeline || []),
+                { status, label: statusLabelMap[status], at: now },
+              ],
       },
     }));
 
@@ -310,10 +432,7 @@ export default function PatientAnalysisPage({ session }) {
         tr("analysisPage.notEnoughData", "Not enough data");
       const topCause =
         structuredReport?.conditionAnalysis?.possibleCauses?.[0] ||
-        tr(
-          "analysisPage.causeNotIdentified",
-          "Cause not clearly identified",
-        );
+        tr("analysisPage.causeNotIdentified", "Cause not clearly identified");
       const testPreview = (
         structuredReport?.recommendedResolution?.testsToConsider || []
       )
@@ -339,9 +458,13 @@ export default function PatientAnalysisPage({ session }) {
           structuredReport?.recommendedSpecialist ||
           tr("analysisPage.generalPhysician", "General Physician"),
         keyPoints: [
-          tr("analysisPage.keyPoints.topPossibility", "Top possibility: {{value}}", {
-            value: topCondition,
-          }),
+          tr(
+            "analysisPage.keyPoints.topPossibility",
+            "Top possibility: {{value}}",
+            {
+              value: topCondition,
+            },
+          ),
           tr("analysisPage.keyPoints.likelyCause", "Likely cause: {{value}}", {
             value: topCause,
           }),
@@ -349,8 +472,7 @@ export default function PatientAnalysisPage({ session }) {
             "analysisPage.keyPoints.emergencyLevel",
             "Emergency level: {{value}}",
             {
-              value:
-                structuredReport?.emergencyAssessment?.level || "moderate",
+              value: structuredReport?.emergencyAssessment?.level || "moderate",
             },
           ),
           tr("analysisPage.keyPoints.tests", "Tests: {{value}}", {
@@ -392,9 +514,13 @@ export default function PatientAnalysisPage({ session }) {
           {
             id: makeChatId(),
             role: "ai",
-            text: tr("analysisPage.aiIntro", "I analyzed your details. {{summary}}", {
-              summary: ai.summary,
-            }),
+            text: tr(
+              "analysisPage.aiIntro",
+              "I analyzed your details. {{summary}}",
+              {
+                summary: ai.summary,
+              },
+            ),
             createdAt: new Date().toISOString(),
           },
         ],
@@ -746,10 +872,7 @@ export default function PatientAnalysisPage({ session }) {
               onChange={(e) =>
                 setForm((p) => ({ ...p, allergies: e.target.value }))
               }
-              placeholder={tr(
-                "analysisPage.allergies",
-                "Allergies (optional)",
-              )}
+              placeholder={tr("analysisPage.allergies", "Allergies (optional)")}
               className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
             />
 
@@ -767,10 +890,7 @@ export default function PatientAnalysisPage({ session }) {
 
             <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
               <Upload size={14} />
-              {tr(
-                "analysisPage.uploadDocs",
-                "Upload docs/images (optional)",
-              )}
+              {tr("analysisPage.uploadDocs", "Upload docs/images (optional)")}
               <input
                 type="file"
                 multiple
@@ -827,7 +947,7 @@ export default function PatientAnalysisPage({ session }) {
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
-                    {tr("analysisPage.urgency", "Urgency")}: {" "}
+                    {tr("analysisPage.urgency", "Urgency")}:{" "}
                     {String(activeCase.ai.urgency || "").toUpperCase()}
                   </span>
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
@@ -907,7 +1027,10 @@ export default function PatientAnalysisPage({ session }) {
                     >
                       <Stethoscope size={13} />
                       {connectingDoctor
-                        ? tr("analysisPage.findingDoctors", "Finding doctors...")
+                        ? tr(
+                            "analysisPage.findingDoctors",
+                            "Finding doctors...",
+                          )
                         : tr("analysisPage.connectDoctor", "Connect to Doctor")}
                     </button>
                   </div>
@@ -936,16 +1059,73 @@ export default function PatientAnalysisPage({ session }) {
                   })}
                 </div>
 
+                {showDoctorProgress ? (
+                  <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700">
+                      {tr(
+                        "analysisPage.consultationProgress",
+                        "Consultation Progress",
+                      )}
+                    </p>
+                    <motion.p
+                      key={`${currentStatus}-${doctorProgressIndex}`}
+                      initial={{ opacity: 0.2, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, ease: easeSmooth }}
+                      className="mt-1 text-sm font-medium text-blue-800"
+                    >
+                      {
+                        [
+                          tr(
+                            "analysisPage.progress.findingDoctor",
+                            "Finding doctor for your case...",
+                          ),
+                          tr(
+                            "analysisPage.progress.reportSent",
+                            "Case report sent to doctor...",
+                          ),
+                          tr(
+                            "analysisPage.progress.reviewing",
+                            "Doctor is reviewing your case...",
+                          ),
+                        ][doctorProgressIndex]
+                      }
+                    </motion.p>
+                  </div>
+                ) : null}
+
                 {currentStatus === "doctor_assigned" && (
                   <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                    {tr("analysisPage.doctorAssigned", "Doctor Assigned")}: {" "}
+                    {tr("analysisPage.doctorAssigned", "Doctor Assigned")}:{" "}
                     {activeCase?.doctorFlow?.doctorName ||
                       tr("analysisPage.pending", "Pending")}
                     {activeCase?.doctorFlow?.consultationId
-                      ? ` • ${tr("analysisPage.consultationId", "Consultation ID")}: ${activeCase.doctorFlow.consultationId}`
+                      ? ` ï¿½ ${tr("analysisPage.consultationId", "Consultation ID")}: ${activeCase.doctorFlow.consultationId}`
                       : ""}
                   </div>
                 )}
+
+                {doctorStructuredReport ? (
+                  <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <p className="text-sm font-semibold text-emerald-700">
+                      {tr(
+                        "analysisPage.progress.doctorReportReady",
+                        "Doctor consult report is ready",
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setDoctorReportOpen(true)}
+                      className="mt-2 inline-flex items-center gap-1 rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-700"
+                    >
+                      <Eye size={13} />
+                      {tr(
+                        "analysisPage.doctorConsultReport",
+                        "Doctor Consult Report",
+                      )}
+                    </button>
+                  </div>
+                ) : null}
 
                 {!!matchedDoctors.length && !consultationLoading && (
                   <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
@@ -955,7 +1135,7 @@ export default function PatientAnalysisPage({ session }) {
                           {tr("analysisPage.selectDoctor", "Select a Doctor")}
                         </p>
                         <p className="text-xs text-slate-600">
-                          {tr("analysisPage.specialist", "Specialist")}: {" "}
+                          {tr("analysisPage.specialist", "Specialist")}:{" "}
                           {matchedSpecialistLabel ||
                             activeCase?.doctorFlow?.specialistLabel ||
                             activeCase?.doctorFlow?.specialist ||
@@ -985,11 +1165,14 @@ export default function PatientAnalysisPage({ session }) {
                               {doctor.name}
                             </p>
                             <p className="text-xs text-slate-600">
-                              {doctor.specializationLabel || doctor.specialization} • {" "}
-                              {doctor.experience} {tr("analysisPage.yearsShort", "yrs")} • {" "}
-                              {tr("analysisPage.casesHandled", "Cases handled")} {" "}
-                              {doctor.casesHandled ?? 0} • {" "}
-                              {tr("analysisPage.rating", "Rating")} {doctor.rating ?? 0}
+                              {doctor.specializationLabel ||
+                                doctor.specialization}{" "}
+                              ï¿½ {doctor.experience}{" "}
+                              {tr("analysisPage.yearsShort", "yrs")} ï¿½{" "}
+                              {tr("analysisPage.casesHandled", "Cases handled")}{" "}
+                              {doctor.casesHandled ?? 0} ï¿½{" "}
+                              {tr("analysisPage.rating", "Rating")}{" "}
+                              {doctor.rating ?? 0}
                             </p>
                           </div>
                           <button
@@ -1022,8 +1205,11 @@ export default function PatientAnalysisPage({ session }) {
 
                 {consultationInfo?.status ? (
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                    {tr("analysisPage.consultationStatus", "Consultation status")}: {" "}
-                    {consultationInfo.status}
+                    {tr(
+                      "analysisPage.consultationStatus",
+                      "Consultation status",
+                    )}
+                    : {consultationInfo.status}
                   </p>
                 ) : null}
 
@@ -1218,7 +1404,8 @@ export default function PatientAnalysisPage({ session }) {
                         {item.name}
                       </p>
                       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-blue-700">
-                        {tr("analysisPage.likelihood", "Likelihood")}: {item.likelihood}
+                        {tr("analysisPage.likelihood", "Likelihood")}:{" "}
+                        {item.likelihood}
                       </p>
                       <p className="mt-1 text-sm text-slate-600">
                         {item.whyItFits}
@@ -1251,7 +1438,7 @@ export default function PatientAnalysisPage({ session }) {
                     )}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-rose-700">
-                    {tr("analysisPage.level", "Level")}: {" "}
+                    {tr("analysisPage.level", "Level")}:{" "}
                     {String(
                       activeCase.ai.report.emergencyAssessment?.level ||
                         "moderate",
@@ -1262,8 +1449,7 @@ export default function PatientAnalysisPage({ session }) {
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-slate-700">
                     {(
-                      activeCase.ai.report.emergencyAssessment?.redFlags ||
-                      []
+                      activeCase.ai.report.emergencyAssessment?.redFlags || []
                     ).map((item) => (
                       <li key={item}>{item}</li>
                     ))}
@@ -1335,6 +1521,160 @@ export default function PatientAnalysisPage({ session }) {
 
               <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                 {activeCase.ai.report.disclaimer}
+              </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {doctorReportOpen && doctorStructuredReport ? (
+        <div className="fixed inset-0 z-160 grid place-items-center bg-slate-900/45 p-4 backdrop-blur-sm">
+          <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                  {tr(
+                    "analysisPage.doctorConsultReport",
+                    "Doctor Consult Report",
+                  )}
+                </p>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {doctorStructuredReport?.patient_details?.name ||
+                    tr("analysisPage.patientReport", "Patient Report")}
+                </h3>
+              </div>
+              <button
+                onClick={() => setDoctorReportOpen(false)}
+                className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(88vh-68px)] space-y-3 overflow-y-auto px-4 py-4 sm:px-5 text-sm text-slate-700">
+              <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p>
+                  <span className="font-semibold">Name:</span>{" "}
+                  {doctorStructuredReport?.patient_details?.name ||
+                    "Not Provided"}
+                </p>
+                <p>
+                  <span className="font-semibold">Age:</span>{" "}
+                  {doctorStructuredReport?.patient_details?.age ||
+                    "Not Provided"}
+                </p>
+                <p>
+                  <span className="font-semibold">Gender:</span>{" "}
+                  {doctorStructuredReport?.patient_details?.gender ||
+                    "Not Provided"}
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p>
+                  <span className="font-semibold">Patient Query:</span>{" "}
+                  {doctorStructuredReport?.consultation_details
+                    ?.patient_query || "Not Provided"}
+                </p>
+                <p>
+                  <span className="font-semibold">Doctor Name:</span>{" "}
+                  {doctorStructuredReport?.consultation_details?.doctor_name ||
+                    "Not Provided"}
+                </p>
+                <p>
+                  <span className="font-semibold">Consultation Date:</span>{" "}
+                  {doctorStructuredReport?.consultation_details
+                    ?.consultation_date || "Not Provided"}
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="font-semibold">Diagnosis Summary</p>
+                <p>
+                  {doctorStructuredReport?.diagnosis_summary || "Not Provided"}
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="font-semibold">Symptoms Noted</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {(doctorStructuredReport?.symptoms_noted?.length
+                    ? doctorStructuredReport.symptoms_noted
+                    : ["Not Provided"]
+                  ).map((item, idx) => (
+                    <li key={`sym-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="font-semibold">Medications</p>
+                <div className="mt-2 space-y-2">
+                  {(doctorStructuredReport?.medications?.length
+                    ? doctorStructuredReport.medications
+                    : [
+                        {
+                          medicine_name: "Not Provided",
+                          dosage: "Not Provided",
+                          frequency: "Not Provided",
+                          duration: "Not Provided",
+                          instructions: "Not Provided",
+                        },
+                      ]
+                  ).map((item, idx) => (
+                    <div
+                      key={`med-${idx}`}
+                      className="rounded-xl bg-slate-50 p-2"
+                    >
+                      <p>
+                        <span className="font-semibold">Medicine:</span>{" "}
+                        {item.medicine_name || "Not Provided"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Dosage:</span>{" "}
+                        {item.dosage || "Not Provided"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Frequency:</span>{" "}
+                        {item.frequency || "Not Provided"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Duration:</span>{" "}
+                        {item.duration || "Not Provided"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">Instructions:</span>{" "}
+                        {item.instructions || "Not Provided"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p>
+                  <span className="font-semibold">Tests Recommended:</span>
+                </p>
+                <ul className="mt-1 list-disc pl-5">
+                  {(doctorStructuredReport?.tests_recommended?.length
+                    ? doctorStructuredReport.tests_recommended
+                    : ["Not Provided"]
+                  ).map((item, idx) => (
+                    <li key={`test-${idx}`}>{item}</li>
+                  ))}
+                </ul>
+                <p className="mt-2">
+                  <span className="font-semibold">Doctor Advice:</span>{" "}
+                  {doctorStructuredReport?.doctor_advice || "Not Provided"}
+                </p>
+                <p>
+                  <span className="font-semibold">Follow Up:</span>{" "}
+                  {doctorStructuredReport?.follow_up || "Not Provided"}
+                </p>
+                <p>
+                  <span className="font-semibold">Raw Doctor Notes:</span>{" "}
+                  {doctorStructuredReport?.raw_doctor_notes || "Not Provided"}
+                </p>
               </section>
             </div>
           </div>
