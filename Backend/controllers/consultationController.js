@@ -7,6 +7,12 @@ import { analyzeWithGemini } from "../services/geminiService.js";
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
+const getRefId = (ref) => {
+  if (!ref) return "";
+  if (typeof ref === "object" && ref._id) return String(ref._id);
+  return String(ref);
+};
+
 const getPrimarySpecialist = (aiAnalysis) =>
   aiAnalysis?.recommended_resolution?.primary_specialist ||
   aiAnalysis?.recommendedResolution?.primarySpecialist ||
@@ -230,6 +236,30 @@ export const createConsultation = async (req, res) => {
       return res.status(403).json({ message: "Forbidden: Not your case" });
     }
 
+    const existingConsultation = await Consultation.findOne({
+      caseId: caseData._id,
+      patientId: req.patient._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (existingConsultation) {
+      return res.status(200).json({
+        consultation: {
+          _id: existingConsultation._id,
+          caseId: existingConsultation.caseId,
+          patientId: existingConsultation.patientId,
+          doctorId: existingConsultation.doctorId,
+          status: existingConsultation.status,
+          createdAt: existingConsultation.createdAt,
+        },
+        case: {
+          _id: caseData._id,
+          status: caseData.status,
+        },
+      });
+    }
+
     if (!["ai_completed", "doctor_requested"].includes(caseData.status)) {
       return res.status(409).json({
         message: "Case is not ready for doctor consultation",
@@ -302,7 +332,7 @@ export const getConsultationById = async (req, res) => {
       return res.status(404).json({ message: "Consultation not found" });
     }
 
-    if (String(consultation.patientId) !== String(req.patient._id)) {
+    if (getRefId(consultation.patientId) !== String(req.patient._id)) {
       return res
         .status(403)
         .json({ message: "Forbidden: Not your consultation" });
@@ -478,7 +508,7 @@ export const submitDoctorCaseResponse = async (req, res) => {
       return res.status(404).json({ message: "Consultation not found" });
     }
 
-    if (String(consultation.doctorId) !== String(req.doctor._id)) {
+    if (getRefId(consultation.doctorId) !== String(req.doctor._id)) {
       return res
         .status(403)
         .json({ message: "Forbidden: Not your consultation" });
@@ -765,7 +795,7 @@ export const updateConsultationStatusByDoctor = async (req, res) => {
       return res.status(404).json({ message: "Consultation not found" });
     }
 
-    if (String(consultation.doctorId) !== String(req.doctor._id)) {
+    if (getRefId(consultation.doctorId) !== String(req.doctor._id)) {
       return res
         .status(403)
         .json({ message: "Forbidden: Not your consultation" });

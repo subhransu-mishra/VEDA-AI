@@ -648,6 +648,14 @@ export default function PatientAnalysisPage({ session }) {
     setConsultationError("");
 
     try {
+      const mapConsultationStatus = (status) => {
+        if (status === "completed") return "completed";
+        if (status === "accepted") return "consultation_active";
+        if (status === "pending") return "doctor_assigned";
+        if (status === "rejected") return "doctor_requested";
+        return "doctor_assigned";
+      };
+
       const createResponse = await analysisApi.createConsultation({
         token: session.token,
         caseId: caseIdentifier,
@@ -672,7 +680,11 @@ export default function PatientAnalysisPage({ session }) {
         setConsultationInfo(detail);
       }
 
-      updateStatus("doctor_assigned", {
+      const nextStatus = mapConsultationStatus(
+        createResponse?.consultation?.status,
+      );
+
+      updateStatus(nextStatus, {
         doctorName,
         consultationId: consultationId || "",
       });
