@@ -32,6 +32,8 @@ import { useNavigate } from "react-router-dom";
 import { reportApi } from "../api/reportApi";
 import { doctorDashboardApi } from "../api/doctorDashboardApi";
 
+void motion;
+
 const easeSmooth = [0.22, 1, 0.36, 1];
 
 const makeId = () =>
@@ -70,7 +72,7 @@ export default function DoctorDashboard({ session, onLogout }) {
   const doctorName = session?.name || "Doctor";
   const doctorEmail = session?.email || "doctor@vedaai.com";
 
-  const [activeTab, setActiveTab] = useState("Overview");
+  const [activeTab, setActiveTab] = useState("All Cases");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -83,6 +85,7 @@ export default function DoctorDashboard({ session, onLogout }) {
   const [riskFilter, setRiskFilter] = useState("all");
 
   const [selectedCase, setSelectedCase] = useState(null);
+  const [aiReportCase, setAiReportCase] = useState(null);
 
   const [reportCase, setReportCase] = useState(null);
   const [reportChat, setReportChat] = useState([]);
@@ -105,12 +108,15 @@ export default function DoctorDashboard({ session, onLogout }) {
     if (!session?.token) return;
 
     try {
-      const response = await doctorDashboardApi.getAssignedRequests({
+      const allCasesResponse = await doctorDashboardApi.getAllCases({
         token: session.token,
       });
 
-      const queue = response.items || [];
+      const queue = allCasesResponse.items || [];
       const highRiskCount = queue.filter((item) => item.risk === "high").length;
+      const historyCount = queue.filter(
+        (item) => item.status === "completed",
+      ).length;
 
       setQueueCases(queue);
       setNotifications([
@@ -121,8 +127,13 @@ export default function DoctorDashboard({ session, onLogout }) {
         },
         {
           id: "N2",
-          text: `${queue.length} assigned patient request(s) in your queue.`,
+          text: `${queue.length} total case(s) available in All Cases.`,
           unread: queue.length > 0,
+        },
+        {
+          id: "N3",
+          text: `${historyCount} case(s) are in history.`,
+          unread: historyCount > 0,
         },
       ]);
     } catch (error) {
@@ -180,8 +191,17 @@ export default function DoctorDashboard({ session, onLogout }) {
   }, [queueCases, query, riskFilter]);
 
   const myCases = useMemo(
-    () => queueCases.filter((item) => item.assignedDoctor === doctorName),
+    () =>
+      queueCases.filter(
+        (item) =>
+          item.isAssignedToCurrentDoctor || item.assignedDoctor === doctorName,
+      ),
     [queueCases, doctorName],
+  );
+
+  const historyCases = useMemo(
+    () => queueCases.filter((item) => item.status === "completed"),
+    [queueCases],
   );
 
   const stats = useMemo(() => {
@@ -207,35 +227,15 @@ export default function DoctorDashboard({ session, onLogout }) {
     }
 
     try {
-      await doctorDashboardApi.updateConsultationStatus({
+      await doctorDashboardApi.claimCase({
         token: session?.token,
         consultationId,
-        status: "accepted",
       });
       await loadDashboardData();
-      setToast("Case accepted");
+      setToast("Case assigned to you");
+      navigate(`/dashboard/case/${encodeURIComponent(caseId)}`);
     } catch (error) {
       setToast(error.message || "Failed to accept case");
-    }
-  };
-
-  const unassignCase = async (caseId) => {
-    const consultationId = findConsultationByCaseId(caseId);
-    if (!consultationId) {
-      setToast("Consultation not found for this case");
-      return;
-    }
-
-    try {
-      await doctorDashboardApi.updateConsultationStatus({
-        token: session?.token,
-        consultationId,
-        status: "rejected",
-      });
-      await loadDashboardData();
-      setToast("Case unassigned");
-    } catch (error) {
-      setToast(error.message || "Failed to unassign case");
     }
   };
 
@@ -381,10 +381,9 @@ export default function DoctorDashboard({ session, onLogout }) {
 
   const menuItems = [
     { id: "Home", label: "Home", icon: Home },
-    { id: "Overview", label: "Clinical Feed", icon: LayoutDashboard },
-    { id: "Queue", label: "Triage Queue", icon: ClipboardList },
-    { id: "Cases", label: "Case Summaries", icon: MessageSquareText },
+    { id: "All Cases", label: "All Cases", icon: LayoutDashboard },
     { id: "My Cases", label: "My Cases", icon: UserCheck },
+    { id: "History", label: "History", icon: ClipboardList },
   ];
 
   const handleMenuClick = (id) => {
@@ -397,7 +396,7 @@ export default function DoctorDashboard({ session, onLogout }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[1002] flex overflow-hidden bg-[linear-gradient(155deg,#eef6ff_0%,#f7fbff_42%,#edf8f6_100%)] text-slate-900">
+    <div className="fixed inset-0 z-1002 flex overflow-hidden bg-[linear-gradient(155deg,#eef6ff_0%,#f7fbff_42%,#edf8f6_100%)] text-slate-900">
       {/* Background Orbs */}
       <motion.div
         style={{ y: orbY }}
@@ -405,13 +404,13 @@ export default function DoctorDashboard({ session, onLogout }) {
       />
       <motion.div
         style={{ y: orbY2 }}
-        className="pointer-events-none absolute right-[-80px] top-[-30px] h-80 w-80 rounded-full bg-[#68b2a0]/16 blur-[120px]"
+        className="pointer-events-none absolute -right-20 -top-7.5 h-80 w-80 rounded-full bg-[#68b2a0]/16 blur-[120px]"
       />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:radial-gradient(#2f78d9_1px,transparent_1px)] [background-size:26px_26px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[radial-gradient(#2f78d9_1px,transparent_1px)] bg-size-[26px_26px]" />
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-[1004] w-[84vw] max-w-xs border-r border-white/60 bg-white/50 p-5 backdrop-blur-2xl transition-transform lg:relative lg:w-72 lg:max-w-none lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-1004 w-[84vw] max-w-xs border-r border-white/60 bg-white/50 p-5 backdrop-blur-2xl transition-transform lg:relative lg:w-72 lg:max-w-none lg:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -458,7 +457,7 @@ export default function DoctorDashboard({ session, onLogout }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 z-[1003] bg-black/35 lg:hidden"
+            className="fixed inset-0 z-1003 bg-black/35 lg:hidden"
             aria-label="Close sidebar"
           />
         )}
@@ -506,7 +505,7 @@ export default function DoctorDashboard({ session, onLogout }) {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 8 }}
-                    className="absolute right-0 z-[1400] mt-2 w-[90vw] max-w-sm sm:w-80 rounded-2xl border border-white/70 bg-white/95 p-3 shadow-xl backdrop-blur-xl"
+                    className="absolute right-0 z-1400 mt-2 w-[90vw] max-w-sm sm:w-80 rounded-2xl border border-white/70 bg-white/95 p-3 shadow-xl backdrop-blur-xl"
                   >
                     {notifications.map((n) => (
                       <div
@@ -539,7 +538,7 @@ export default function DoctorDashboard({ session, onLogout }) {
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
-                    className="absolute right-0 z-[1400] mt-2 w-[90vw] max-w-xs sm:w-56 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
+                    className="absolute right-0 z-1400 mt-2 w-[90vw] max-w-xs sm:w-56 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
                   >
                     <div className="px-3 py-2 overflow-hidden">
                       <p className="text-sm font-semibold truncate">
@@ -591,12 +590,78 @@ export default function DoctorDashboard({ session, onLogout }) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="fixed bottom-4 left-1/2 z-[2000] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg"
+                className="fixed bottom-4 left-1/2 z-2000 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg"
               >
                 {toast}
               </motion.div>
             )}
           </AnimatePresence>
+
+          {activeTab === "All Cases" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {["all", "high", "medium", "low"].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRiskFilter(r)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                      riskFilter === r
+                        ? "bg-slate-900 text-white"
+                        : "border border-white/70 bg-white/75 text-slate-600 hover:bg-white"
+                    }`}
+                  >
+                    {r.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {!filteredQueue.length ? (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-white/40 p-8 text-center text-slate-500 backdrop-blur-xl">
+                  No cases found matching your criteria.
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredQueue.map((item, index) => (
+                    <AllCasesCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onViewDetails={() => {
+                        setSelectedCase(item);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "History" && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600 bg-white/50 inline-block px-3 py-1.5 rounded-lg border border-white/60">
+                Completed consultations and previously handled cases
+              </p>
+
+              {!historyCases.length ? (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-white/40 p-8 text-center text-slate-500 backdrop-blur-xl">
+                  No history yet.
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {historyCases.map((item, index) => (
+                    <AllCasesCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onViewDetails={() => {
+                        setSelectedCase(item);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {activeTab === "Overview" && (
             <div className="space-y-4">
@@ -805,19 +870,19 @@ export default function DoctorDashboard({ session, onLogout }) {
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => assignToMe(item.id)}
-                        className="flex-1 min-w-[80px] rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                        className="flex-1 min-w-20 rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800"
                       >
                         Assign
                       </button>
                       <button
                         onClick={() => setSelectedCase(item)}
-                        className="flex-1 min-w-[80px] rounded-lg border border-slate-200 py-2 text-xs font-semibold bg-white hover:bg-slate-50"
+                        className="flex-1 min-w-20 rounded-lg border border-slate-200 py-2 text-xs font-semibold bg-white hover:bg-slate-50"
                       >
                         Open
                       </button>
                       <button
                         onClick={() => escalateCase(item.id)}
-                        className="flex-1 min-w-[80px] rounded-lg border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        className="flex-1 min-w-20 rounded-lg border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                       >
                         Escalate
                       </button>
@@ -838,7 +903,6 @@ export default function DoctorDashboard({ session, onLogout }) {
                   isAssignedToCurrent={item.assignedDoctor === doctorName}
                   onOpen={() => setSelectedCase(item)}
                   onAssign={() => assignToMe(item.id)}
-                  onUnassign={() => unassignCase(item.id)}
                   onGenerate={() => openReportBuilder(item)}
                   onReviewed={() => markReviewed(item.id)}
                   onEscalate={() => escalateCase(item.id)}
@@ -858,7 +922,7 @@ export default function DoctorDashboard({ session, onLogout }) {
 
               {!myCases.length ? (
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-white/40 p-8 text-center text-slate-500 backdrop-blur-xl">
-                  No assigned cases yet. Use "Assign to me" in the Triage Queue.
+                  No assigned cases yet. Use "Assign to me" in All Cases.
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -870,7 +934,6 @@ export default function DoctorDashboard({ session, onLogout }) {
                       isAssignedToCurrent
                       onOpen={() => setSelectedCase(item)}
                       onAssign={() => assignToMe(item.id)}
-                      onUnassign={() => unassignCase(item.id)}
                       onGenerate={() => openReportBuilder(item)}
                       onReviewed={() => markReviewed(item.id)}
                       onEscalate={() => escalateCase(item.id)}
@@ -912,7 +975,7 @@ export default function DoctorDashboard({ session, onLogout }) {
                   AI Summary Assessment
                 </p>
                 <p className="text-sm leading-relaxed text-slate-700">
-                  {selectedCase.summary}
+                  {selectedCase.summary || "AI summary is not available."}
                 </p>
               </div>
               <div className="pt-4 flex flex-wrap gap-2 border-t border-slate-100">
@@ -921,20 +984,61 @@ export default function DoctorDashboard({ session, onLogout }) {
                     assignToMe(selectedCase.id);
                     setSelectedCase(null);
                   }}
-                  className="rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+                  className="rounded-xl cursor-pointer bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
                 >
                   Assign to me
                 </button>
                 <button
                   onClick={() => {
-                    openReportBuilder(selectedCase);
+                    setAiReportCase(selectedCase);
                     setSelectedCase(null);
                   }}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="rounded-xl cursor-pointer border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Generate AI Report
+                  AI Report
                 </button>
               </div>
+            </div>
+          </ModalShell>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {aiReportCase && (
+          <ModalShell
+            title={`AI Report • ${aiReportCase.id}`}
+            onClose={() => setAiReportCase(null)}
+            wide
+          >
+            <div className="space-y-4 text-slate-800">
+              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                <p className="text-sm">
+                  <span className="font-semibold">Patient:</span>{" "}
+                  {aiReportCase.patientName || "N/A"}
+                </p>
+                <p className="text-sm">
+                  <span className="font-semibold">Age:</span>{" "}
+                  {aiReportCase.patientAge ?? "N/A"}
+                </p>
+                <p className="text-sm">
+                  <span className="font-semibold">Gender:</span>{" "}
+                  {aiReportCase.patientGender || "N/A"}
+                </p>
+                <p className="text-sm">
+                  <span className="font-semibold">Height:</span>{" "}
+                  {aiReportCase.patientHeight ?? "N/A"}
+                </p>
+                <p className="text-sm">
+                  <span className="font-semibold">Weight:</span>{" "}
+                  {aiReportCase.patientWeight ?? "N/A"}
+                </p>
+                <p className="text-sm">
+                  <span className="font-semibold">Blood Type:</span>{" "}
+                  {aiReportCase.patientBloodType || "N/A"}
+                </p>
+              </div>
+
+              <StructuredAiReport caseItem={aiReportCase} />
             </div>
           </ModalShell>
         )}
@@ -1092,7 +1196,56 @@ export default function DoctorDashboard({ session, onLogout }) {
 
 // --- MISSING CHILD COMPONENTS ADDED BELOW ---
 
+function AllCasesCard({ item, index, onViewDetails }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.1 }}
+      transition={{ delay: index * 0.04 }}
+      className="flex flex-col overflow-hidden rounded-3xl border border-white/70 bg-white/80 shadow-sm backdrop-blur-xl"
+    >
+      <div className="border-b border-slate-100 p-4 sm:p-5">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="font-semibold text-slate-900 truncate">
+              {item.patientName}
+            </h4>
+            <p className="text-xs text-slate-500">{item.id}</p>
+          </div>
+          <span
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${riskClass(item.risk)}`}
+          >
+            {item.risk}
+          </span>
+        </div>
+        <p className="text-sm text-slate-700 line-clamp-2">{item.complaint}</p>
+      </div>
+
+      <div className="bg-slate-50/50 p-4 sm:p-5 flex-1 flex flex-col justify-end">
+        <div className="mb-4 flex items-center justify-between text-xs text-slate-500">
+          <span className="flex items-center gap-1">
+            <Clock size={12} /> {item.waitMins}m wait
+          </span>
+          <span className="font-medium px-2 py-0.5 rounded-md bg-white border border-slate-200">
+            {item.assignedDoctor || "Unassigned"}
+          </span>
+        </div>
+
+        <button
+          onClick={onViewDetails}
+          className="rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          View details
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 function MetricCard({ title, value, icon: Icon, danger, index }) {
+  void Icon;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -1125,7 +1278,6 @@ function CaseCard({
   isAssignedToCurrent,
   onOpen,
   onAssign,
-  onUnassign,
   onGenerate,
   onReviewed,
   onEscalate,
@@ -1191,7 +1343,7 @@ function CaseCard({
             <>
               <button
                 onClick={onAssign}
-                className="col-span-2 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+                className="col-span-2 rounded-xl cursor-pointer bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
               >
                 Assign to me
               </button>
@@ -1215,9 +1367,178 @@ function CaseCard({
   );
 }
 
+function StructuredAiReport({ caseItem }) {
+  const ai = caseItem?.aiAnalysis || {};
+  const condition = ai.conditionAnalysis || {};
+  const resolution = ai.recommendedResolution || {};
+  const emergency = ai.emergencyAssessment || {};
+
+  const possibleConditions = Array.isArray(condition.possibleConditions)
+    ? condition.possibleConditions
+    : [];
+  const possibleCauses = Array.isArray(condition.possibleCauses)
+    ? condition.possibleCauses
+    : [];
+  const immediateSteps = Array.isArray(resolution.immediateSteps)
+    ? resolution.immediateSteps
+    : [];
+  const homeCare = Array.isArray(resolution.homeCare)
+    ? resolution.homeCare
+    : [];
+  const testsToConsider = Array.isArray(resolution.testsToConsider)
+    ? resolution.testsToConsider
+    : [];
+  const specialistsToConsult = Array.isArray(resolution.specialistsToConsult)
+    ? resolution.specialistsToConsult
+    : [];
+  const redFlags = Array.isArray(emergency.redFlags) ? emergency.redFlags : [];
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          Case Summary
+        </h4>
+        <p className="text-sm leading-relaxed text-slate-700">
+          {ai.summary || caseItem.summary || "No summary available."}
+        </p>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          Possible Conditions
+        </h4>
+        {!possibleConditions.length ? (
+          <p className="text-sm text-slate-600">
+            No condition insights available.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {possibleConditions.map((item, idx) => (
+              <div
+                key={`${item.name || "condition"}-${idx}`}
+                className="rounded-xl bg-slate-50 p-3"
+              >
+                <p className="text-sm font-semibold text-slate-800">
+                  {item.name || "Condition"}
+                </p>
+                <p className="text-xs text-slate-600">
+                  Likelihood: {item.likelihood || "N/A"}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {item.whyItFits || "No explanation provided."}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          Recommended Resolution
+        </h4>
+        <p className="mb-2 text-sm text-slate-700">
+          Primary specialist: {resolution.primarySpecialist || "N/A"}
+        </p>
+        <p className="mb-2 text-sm text-slate-700">
+          Follow-up window: {resolution.followUpWindow || "N/A"}
+        </p>
+        <p className="mb-1 text-xs font-semibold text-slate-600">
+          Immediate steps
+        </p>
+        <ul className="mb-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {(immediateSteps.length
+            ? immediateSteps
+            : ["No immediate steps available."]
+          ).map((item, idx) => (
+            <li key={`step-${idx}`}>{item}</li>
+          ))}
+        </ul>
+        <p className="mb-1 text-xs font-semibold text-slate-600">Home care</p>
+        <ul className="mb-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {(homeCare.length
+            ? homeCare
+            : ["No home care advice available."]
+          ).map((item, idx) => (
+            <li key={`home-${idx}`}>{item}</li>
+          ))}
+        </ul>
+        <p className="mb-1 text-xs font-semibold text-slate-600">
+          Tests to consider
+        </p>
+        <ul className="mb-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {(testsToConsider.length
+            ? testsToConsider
+            : ["No tests suggested."]
+          ).map((item, idx) => (
+            <li key={`test-${idx}`}>{item}</li>
+          ))}
+        </ul>
+        <p className="mb-1 text-xs font-semibold text-slate-600">
+          Specialists to consult
+        </p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {(specialistsToConsult.length
+            ? specialistsToConsult
+            : ["No specialist list available."]
+          ).map((item, idx) => (
+            <li key={`spec-${idx}`}>{item}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          Emergency Assessment
+        </h4>
+        <p className="text-sm text-slate-700">
+          Level: {emergency.level || "N/A"}
+        </p>
+        <p className="mt-1 text-sm text-slate-700">
+          {emergency.why || "No emergency note available."}
+        </p>
+        <p className="mb-1 mt-2 text-xs font-semibold text-slate-600">
+          Red flags
+        </p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {(redFlags.length ? redFlags : ["No red flags listed."]).map(
+            (item, idx) => (
+              <li key={`flag-${idx}`}>{item}</li>
+            ),
+          )}
+        </ul>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          Disclaimer
+        </h4>
+        <p className="text-sm text-slate-700">
+          {ai.disclaimer ||
+            "This AI report is informational and requires clinical validation."}
+        </p>
+      </section>
+
+      {possibleCauses.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+            Possible Causes
+          </h4>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+            {possibleCauses.map((item, idx) => (
+              <li key={`cause-${idx}`}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
 function ModalShell({ title, onClose, wide, children }) {
   return (
-    <div className="fixed inset-0 z-[3000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm sm:backdrop-blur-md">
+    <div className="fixed inset-0 z-3000 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm sm:backdrop-blur-md">
       <motion.div
         initial={{ opacity: 0, y: "100%", scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}

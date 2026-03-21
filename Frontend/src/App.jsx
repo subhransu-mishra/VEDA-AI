@@ -24,12 +24,17 @@ const Testimonials = lazy(() => import("./components/Testimonials"));
 
 const PatientSignup = lazy(() => import("./pages/PatientSignup"));
 const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
+const DoctorCaseFormPage = lazy(() => import("./pages/DoctorCaseFormPage"));
 const PatientDashboard = lazy(() => import("./pages/PatientDashboard"));
-const AdminVerificationPanel = lazy(() => import("./pages/AdminVerificationPanel"));
+const AdminVerificationPanel = lazy(
+  () => import("./pages/AdminVerificationPanel"),
+);
 const PatientAnalysisPage = lazy(() => import("./pages/PatientAnalysisPage"));
 
 const DoctorSignup = lazy(() => import("./components/DoctorSignup"));
-const DoctorVerification = lazy(() => import("./components/DoctorVerification"));
+const DoctorVerification = lazy(
+  () => import("./components/DoctorVerification"),
+);
 import {
   clearSession,
   DOCTORS_KEY,
@@ -345,6 +350,18 @@ function AppInner() {
                   doctorVerificationStatus={doctorVerificationStatus}
                 >
                   <DoctorDashboard session={session} onLogout={onLogout} />
+                </ProtectedDoctorDashboard>
+              }
+            />
+
+            <Route
+              path="/dashboard/case/:id"
+              element={
+                <ProtectedDoctorDashboard
+                  session={session}
+                  doctorVerificationStatus={doctorVerificationStatus}
+                >
+                  <DoctorCaseFormPage session={session} />
                 </ProtectedDoctorDashboard>
               }
             />

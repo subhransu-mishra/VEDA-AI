@@ -26,6 +26,45 @@ const consultationSchema = new mongoose.Schema(
       default: "pending",
       index: true,
     },
+    doctorResponse: {
+      caseNotes: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      medicationPlan: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      testRequirements: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      followUpAfter: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      severity: {
+        type: String,
+        enum: ["normal", "medium", "serious", "critical"],
+        default: "normal",
+      },
+      confirmedByDoctor: {
+        type: Boolean,
+        default: false,
+      },
+      submittedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    doctorStructuredReport: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true },
 );
