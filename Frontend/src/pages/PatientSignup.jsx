@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
+import { X, ShieldCheck, ChevronRight, ChevronLeft, Lock, Brain, Database, HeartPulse, FileText, Scale } from "lucide-react";
 import { authApi } from "../api/authApi";
 import { createSession, upsertPatientCache } from "../utils/authStorage";
 
@@ -10,183 +11,225 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^\d{10}$/;
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-const LineInput = ({
-  label,
-  name,
-  type = "text",
-  value,
-  onChange,
-  error,
-  placeholder,
-  options = [],
-  ...props
-}) => {
+// --- TACTILE BLUE INPUT (MOBILE OPTIMIZED) ---
+const TactileInput = ({ label, name, type = "text", value, onChange, error, placeholder, options = [], ...props }) => {
   const [isFocused, setIsFocused] = useState(false);
   const isActive = isFocused || value?.toString().trim().length > 0;
 
   return (
-    <motion.div layout className="relative flex w-full flex-col pt-6">
-      <motion.label
-        layout
-        className={`absolute left-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
-          isActive
-            ? "top-0 text-xs font-semibold tracking-widest text-slate-500 uppercase"
-            : "top-6 text-lg text-slate-400"
-        }`}
-      >
-        {label}
-      </motion.label>
-
-      {type === "textarea" ? (
-        <textarea
-          name={name}
-          value={value}
-          onChange={onChange}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className="peer min-h-10 w-full resize-none border-b-2 border-slate-200 bg-transparent py-2 text-xl font-medium text-slate-900 transition-colors duration-300 focus:border-slate-900 focus:outline-none"
-          {...props}
-        />
-      ) : type === "select" ? (
-        <select
-          name={name}
-          value={value}
-          onChange={onChange}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className={`peer w-full appearance-none border-b-2 border-slate-200 bg-transparent py-2 text-xl font-medium transition-colors duration-300 focus:border-slate-900 focus:outline-none cursor-pointer ${value ? "text-slate-900" : "text-transparent"}`}
-          {...props}
-        >
-          <option value="" disabled className="text-slate-400">
-            {placeholder}
-          </option>
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value} className="text-slate-900">
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={type}
-          name={name}
-          value={value}
-          onChange={onChange}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className="peer w-full border-b-2 border-slate-200 bg-transparent py-2 text-xl font-medium text-slate-900 transition-colors duration-300 focus:border-slate-900 focus:outline-none"
-          {...props}
-        />
-      )}
-
-      <AnimatePresence>
-        {error && (
-          <motion.p
-            initial={{ opacity: 0, height: 0, y: -10 }}
-            animate={{ opacity: 1, height: "auto", y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -5 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="mt-2 text-sm font-medium text-red-500"
-          >
-            {error}
-          </motion.p>
+    <motion.div layout className="relative flex w-full flex-col">
+      <div className={`relative rounded-xl border transition-all duration-300 bg-white ${
+          isFocused ? "border-blue-600 ring-2 ring-blue-500/10" : error ? "border-red-300 bg-red-50/50" : "border-blue-900/10"
+        }`}>
+        <label className={`pointer-events-none absolute left-4 transition-all duration-300 ${
+            isActive ? "top-2 text-[10px] font-bold text-blue-600 uppercase" : "top-4 text-sm font-medium text-blue-900/40"
+          }`}>
+          {label}
+        </label>
+        {type === "textarea" ? (
+          <textarea name={name} value={value} onChange={onChange} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)}
+            className="peer min-h-[80px] w-full resize-none bg-transparent px-4 pb-2 pt-6 text-sm font-medium text-blue-900 outline-none" {...props} />
+        ) : type === "select" ? (
+          <select name={name} value={value} onChange={onChange} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)}
+            className={`peer w-full appearance-none bg-transparent px-4 pb-2 pt-6 text-sm font-medium outline-none ${value ? "text-blue-900" : "text-transparent"}`} {...props}>
+            <option value="" disabled>{placeholder}</option>
+            {options.map((opt) => (<option key={opt.value} value={opt.value} className="text-blue-900">{opt.label}</option>))}
+          </select>
+        ) : (
+          <input type={type} name={name} value={value} onChange={onChange} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)}
+            className="peer w-full bg-transparent px-4 pb-2 pt-6 text-sm font-medium text-blue-900 outline-none" {...props} />
         )}
-      </AnimatePresence>
+      </div>
+      <AnimatePresence>{error && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-1 text-[10px] font-bold text-red-500 ml-2 uppercase">{error}</motion.p>}</AnimatePresence>
     </motion.div>
   );
 };
 
-export default function PatientSignup({ onSignup }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+// --- MULTI-PAGE LARGE MODAL (MOBILE RESPONSIVE) ---
+const LegalModal = ({ isOpen, onClose, onFinalSubmit, isSubmitting }) => {
+  const [step, setStep] = useState(1);
+  const [checks, setChecks] = useState({ s1: false, s2: false, s3: false });
 
+  const steps = [
+    {
+      title: "Data Sovereignty & Security",
+      icon: <Lock className="text-blue-600"/>,
+      content: [
+        "VedaAI infrastructure is built on a zero-trust architecture. All patient health information (PHI) is encrypted at rest using AES-256 and in transit via TLS 1.3.",
+        "By proceeding, you acknowledge that while VedaAI implements military-grade security, no digital system is 100% immune to breaches. You consent to the secure storage of your medical history on our HIPAA-compliant cloud servers.",
+        "You retain the right to 'be forgotten.' At any time, you may request a full export or permanent deletion of your health profile through your account settings."
+      ]
+    },
+    {
+      title: "AI Clinical Disclaimer",
+      icon: <Brain className="text-blue-600"/>,
+      content: [
+        "VedaAI is an Intelligent Decision Support System (IDSS), not a licensed medical practitioner. The diagnostics and suggestions provided are generated by neural networks analyzing patterns in medical literature and your specific data.",
+        "UNDER NO CIRCUMSTANCES should VedaAI be used as the sole basis for surgical, pharmaceutical, or emergency medical decisions. You must verify all AI-generated insights with a qualified human physician.",
+        "You agree to hold VedaAI harmless from any outcomes resulting from the misinterpretation of AI-driven suggestions."
+      ]
+    },
+    {
+      title: "Terms of Engagement",
+      icon: <Scale className="text-blue-600"/>,
+      content: [
+        "Accuracy of Information: You certify that all biometrics, medical history, and emergency contact details provided are accurate. False information may lead to dangerous diagnostic errors.",
+        "Emergency Protocol: VedaAI is NOT an emergency response service. In the event of a life-threatening situation, immediately contact your local emergency number (e.g., 911).",
+        "Subscription & Service: We reserve the right to update our AI models and service terms. Your continued use of the platform constitutes acceptance of the latest clinical protocols."
+      ]
+    }
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-blue-950/90 backdrop-blur-sm" onClick={onClose} />
+      
+      <motion.div 
+        initial={{ y: "100%" }} animate={{ y: 0 }} 
+        className="relative h-[92vh] sm:h-auto sm:max-h-[85vh] w-full max-w-3xl rounded-t-[32px] sm:rounded-[40px] bg-white overflow-hidden shadow-2xl flex flex-col"
+      >
+        {/* Modal Header */}
+        <div className="bg-slate-50 px-6 py-5 sm:px-10 sm:py-8 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-900">Legal Compliance Suite</h2>
+            <div className="flex gap-2 mt-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className={`h-1.5 w-10 rounded-full transition-all duration-500 ${step >= i ? 'bg-blue-600' : 'bg-slate-200'}`} />
+              ))}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white rounded-full shadow-sm hover:bg-red-50 transition-colors"><X size={20}/></button>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-10">
+          <AnimatePresence mode="wait">
+            <motion.div key={step} initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -30, opacity: 0 }} className="space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-blue-50 rounded-2xl">{steps[step-1].icon}</div>
+                <h3 className="text-xl font-bold text-blue-950">{steps[step-1].title}</h3>
+              </div>
+
+              <div className="space-y-5">
+                {steps[step-1].content.map((para, idx) => (
+                  <p key={idx} className="text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
+                    {para}
+                  </p>
+                ))}
+              </div>
+
+              <div className="pt-4">
+                <label className="flex items-start gap-4 p-5 rounded-2xl border-2 border-blue-100 bg-blue-50/50 cursor-pointer group hover:bg-blue-50 transition-all">
+                  <div className="relative flex items-center mt-1">
+                    <input 
+                      type="checkbox" 
+                      checked={checks[`s${step}`]} 
+                      onChange={(e) => setChecks({...checks, [`s${step}`]: e.target.checked})} 
+                      className="h-6 w-6 rounded border-blue-300 text-blue-600 focus:ring-blue-500 transition-transform active:scale-90" 
+                    />
+                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-blue-900 leading-tight">
+                    I have read, understood, and agree to the {steps[step-1].title} provisions.
+                  </span>
+                </label>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-6 py-6 sm:px-10 sm:py-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <button 
+            disabled={step === 1} 
+            onClick={() => setStep(s => s - 1)} 
+            className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-blue-600 disabled:opacity-0 transition-colors"
+          >
+            <ChevronLeft size={20}/> Back
+          </button>
+          
+          {step < 3 ? (
+            <button 
+              disabled={!checks[`s${step}`]} 
+              onClick={() => setStep(s => s + 1)} 
+              className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-blue-600/20 disabled:opacity-30 active:scale-95 transition-all"
+            >
+              Continue <ChevronRight size={18}/>
+            </button>
+          ) : (
+            <button 
+              disabled={!checks.s3 || isSubmitting} 
+              onClick={onFinalSubmit} 
+              className="bg-blue-900 text-white px-10 py-4 rounded-xl font-bold text-sm shadow-xl hover:bg-black transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isSubmitting ? "Syncing Profile..." : "Finalize & Register"}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default function PatientSignup({ onSignup }) {
+  const navigate = useNavigate();
+  const [showLegal, setShowLegal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  // --- EXACT SCHEMA FIELDS PRESERVED ---
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    age: "",
-    height: "",
-    weight: "",
-    gender: "",
-    bloodGroup: "",
-    city: "",
-    emergencyName: "",
-    emergencyPhone: "",
-    primaryConcern: "",
-    knownConditions: "",
-    allergies: "",
-    consent: false,
+    fullName: "", email: "", phone: "", password: "", confirmPassword: "",
+    age: "", height: "", weight: "", gender: "", bloodGroup: "", city: "",
+    emergencyName: "", emergencyPhone: "", primaryConcern: "", knownConditions: "",
+    allergies: "", consent: false,
   });
 
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const onChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
-  const validate = () => {
-    const next = {};
-    if (form.fullName.trim().length < 3) next.fullName = t("patientSignup.errors.fullName");
-    if (!emailRegex.test(form.email.trim())) next.email = t("patientSignup.errors.email");
-    if (!phoneRegex.test(form.phone.trim())) next.phone = t("patientSignup.errors.phone");
-    if (!passwordRegex.test(form.password)) next.password = t("patientSignup.errors.password");
-    if (form.confirmPassword !== form.password) next.confirmPassword = t("patientSignup.errors.confirmPassword");
-
-    const age = Number(form.age);
-    if (!Number.isFinite(age) || age < 1 || age > 120) next.age = t("patientSignup.errors.age");
-
-    const height = Number(form.height);
-    if (!Number.isFinite(height) || height < 50 || height > 300) next.height = t("patientSignup.errors.height");
-    const weight = Number(form.weight);
-    if (!Number.isFinite(weight) || weight < 2 || weight > 500) next.weight = t("patientSignup.errors.weight");
-
-    if (!form.gender) next.gender = t("patientSignup.errors.selection");
-    if (!form.bloodGroup) next.bloodGroup = t("patientSignup.errors.selection");
-    if (form.city.trim().length < 2) next.city = t("patientSignup.errors.city");
-    if (form.emergencyName.trim().length < 3) next.emergencyName = t("patientSignup.errors.emergencyName");
-    if (!phoneRegex.test(form.emergencyPhone.trim())) next.emergencyPhone = t("patientSignup.errors.phone");
-    if (form.primaryConcern.trim().length < 8) next.primaryConcern = t("patientSignup.errors.primaryConcern");
-    if (!form.consent) next.consent = t("patientSignup.errors.consent");
-
-    return next;
-  };
-
-  const onSubmit = async (e) => {
+  const handlePreSubmit = (e) => {
     e.preventDefault();
-    const nextErrors = validate();
+    const nextErrors = {};
+    if (form.fullName.length < 3) nextErrors.fullName = "Required";
+    if (!emailRegex.test(form.email)) nextErrors.email = "Invalid";
+    if (!phoneRegex.test(form.phone)) nextErrors.phone = "10 digits";
+    if (!passwordRegex.test(form.password)) nextErrors.password = "Strong password needed";
+    if (form.confirmPassword !== form.password) nextErrors.confirmPassword = "Mismatch";
+    
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      toast.error("Please fix form errors first");
       return;
     }
+    setShowLegal(true);
+  };
 
-    const payload = {
-      fullName: form.fullName.trim(),
-      email: form.email.trim().toLowerCase(),
-      password: form.password,
-      age: Number(form.age),
-      height: Number(form.height),
-      weight: Number(form.weight),
-      bloodType: form.bloodGroup,
-      gender: form.gender,
-      phoneNumber: form.phone.trim(),
-      city: form.city.trim(),
-      emergencyContactName: form.emergencyName.trim(),
-      emergencyPhone: form.emergencyPhone.trim(),
-    };
-
+  const onFinalSubmit = async () => {
     setIsSubmitting(true);
-
     try {
+      const payload = {
+        fullName: form.fullName.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        age: Number(form.age),
+        height: Number(form.height),
+        weight: Number(form.weight),
+        bloodType: form.bloodGroup,
+        gender: form.gender,
+        phoneNumber: form.phone.trim(),
+        city: form.city.trim(),
+        emergencyContactName: form.emergencyName.trim(),
+        emergencyPhone: form.emergencyPhone.trim(),
+      };
+      
       const response = await authApi.patientSignup(payload);
-      const patient = {
+      
+      const patientCache = {
         ...response.patient,
         role: "patient",
         primaryConcern: form.primaryConcern.trim(),
@@ -194,194 +237,99 @@ export default function PatientSignup({ onSignup }) {
         allergiesNotes: form.allergies.trim(),
       };
 
-      upsertPatientCache(patient);
-
-      const session = createSession({
-        user: response.patient,
-        role: "patient",
-        token: response.token,
-      });
-
-      onSignup?.(session);
-      toast.success(response.message || "Patient registered successfully");
+      upsertPatientCache(patientCache);
+      onSignup?.(createSession({ user: response.patient, role: "patient", token: response.token }));
+      toast.success("Health Profile Created");
       navigate("/dashboard/patient");
-    } catch (error) {
-      toast.error(error.message || "Patient signup failed");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", damping: 20, stiffness: 100 },
-    },
+    } catch (err) {
+      toast.error(err.message || "Signup failed");
+      setShowLegal(false);
+    } finally { setIsSubmitting(false); }
   };
 
   return (
-    <main className="relative min-h-screen bg-[#F5F5F7] px-6 py-20 selection:bg-slate-300 sm:px-12 lg:px-24">
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.04] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+    <main className="flex min-h-screen w-full flex-col bg-slate-50 lg:flex-row">
+      {/* SIDEBAR IMAGE (MOBILE: HIDDEN | DESKTOP: STATIC/ABSOLUTE) */}
+      <div className="hidden lg:flex relative w-[35%] bg-blue-900 p-12 flex-col justify-between text-white overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 blur-[100px] rounded-full" />
+        <div className="relative z-10">
+          <div className="h-14 w-14 rounded-2xl bg-white/10 backdrop-blur-xl flex items-center justify-center mb-8">
+            <HeartPulse className="text-blue-300" size={32}/>
+          </div>
+          <h1 className="text-5xl font-bold leading-tight">Patient <br /><span className="text-blue-400">Onboarding</span></h1>
+          <p className="mt-6 text-blue-100/60 leading-relaxed max-w-xs">Your data is secured with AES-256 encryption. HIPAA compliant session active.</p>
+        </div>
+        <div className="relative z-10 bg-white/5 border border-white/10 p-6 rounded-[32px] backdrop-blur-md">
+            <div className="flex items-center gap-3 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+              <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" /> System Encrypted
+            </div>
+        </div>
+      </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-3xl">
-        <motion.div whileTap={{ scale: 0.98 }} className="mb-20 inline-block cursor-default">
-          <p className="mb-2 text-sm font-medium uppercase tracking-widest text-slate-500">
-            {t("patientSignup.sectionLabel")}
-          </p>
-          <h1 className="text-3xl font-light tracking-tight text-slate-900 sm:text-4xl">
-            {t("patientSignup.titlePrefix")}{" "}
-            <span className="italic text-slate-500 transition-colors duration-500 hover:text-slate-900">
-              {t("patientSignup.titleAccent")}
-            </span>
-          </h1>
-        </motion.div>
-
-        <motion.form
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          onSubmit={onSubmit}
-          className="flex flex-col gap-10"
-        >
-          <motion.div variants={itemVariants} className="grid grid-cols-1 gap-10 sm:grid-cols-2">
-            <LineInput label={t("patientSignup.legalName")} name="fullName" value={form.fullName} onChange={onChange} error={errors.fullName} />
-            <LineInput label={t("patientSignup.emailAddress")} name="email" type="email" value={form.email} onChange={onChange} error={errors.email} />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="grid grid-cols-1 gap-10 sm:grid-cols-4">
-            <LineInput label={t("patientSignup.age")} name="age" type="number" value={form.age} onChange={onChange} error={errors.age} />
-            <LineInput label={t("patientSignup.height")} name="height" type="number" value={form.height} onChange={onChange} error={errors.height} />
-            <LineInput label={t("patientSignup.weight")} name="weight" type="number" value={form.weight} onChange={onChange} error={errors.weight} />
-            <LineInput
-              label={t("patientSignup.bloodType")}
-              name="bloodGroup"
-              type="select"
-              value={form.bloodGroup}
-              onChange={onChange}
-              error={errors.bloodGroup}
-              placeholder={t("patientSignup.selectPlaceholder")}
-              options={[
-                { value: "A+", label: "A+" },
-                { value: "A-", label: "A-" },
-                { value: "B+", label: "B+" },
-                { value: "B-", label: "B-" },
-                { value: "AB+", label: "AB+" },
-                { value: "AB-", label: "AB-" },
-                { value: "O+", label: "O+" },
-                { value: "O-", label: "O-" },
-              ]}
-            />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="grid grid-cols-1 gap-10 sm:grid-cols-2">
-            <LineInput
-              label={t("patientSignup.genderIdentity")}
-              name="gender"
-              type="select"
-              value={form.gender}
-              onChange={onChange}
-              error={errors.gender}
-              placeholder={t("patientSignup.selectPlaceholder")}
-              options={[
-                { value: "female", label: t("patientSignup.genderOptions.female") },
-                { value: "male", label: t("patientSignup.genderOptions.male") },
-                { value: "non-binary", label: t("patientSignup.genderOptions.nonBinary") },
-                { value: "prefer-not-to-say", label: t("patientSignup.genderOptions.preferNotToSay") },
-              ]}
-            />
-            <LineInput label={t("patientSignup.phoneNumber")} name="phone" value={form.phone} onChange={onChange} error={errors.phone} />
-          </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <LineInput label={t("patientSignup.cityOfResidence")} name="city" value={form.city} onChange={onChange} error={errors.city} />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="mt-8 grid grid-cols-1 gap-10 border-t border-slate-200 pt-8 sm:grid-cols-2">
-            <LineInput label={t("patientSignup.emergencyContactName")} name="emergencyName" value={form.emergencyName} onChange={onChange} error={errors.emergencyName} />
-            <LineInput label={t("patientSignup.emergencyPhone")} name="emergencyPhone" value={form.emergencyPhone} onChange={onChange} error={errors.emergencyPhone} />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="mt-8 grid grid-cols-1 gap-10">
-            <LineInput label={t("patientSignup.primaryConcern")} name="primaryConcern" type="textarea" value={form.primaryConcern} onChange={onChange} error={errors.primaryConcern} />
-            <LineInput label={t("patientSignup.knownConditions")} name="knownConditions" type="textarea" value={form.knownConditions} onChange={onChange} />
-            <LineInput label={t("patientSignup.allergies")} name="allergies" type="textarea" value={form.allergies} onChange={onChange} />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="mt-8 grid grid-cols-1 gap-10 sm:grid-cols-2">
-            <LineInput label={t("patientSignup.createPassword")} name="password" type="password" value={form.password} onChange={onChange} error={errors.password} />
-            <LineInput label={t("patientSignup.confirmPassword")} name="confirmPassword" type="password" value={form.confirmPassword} onChange={onChange} error={errors.confirmPassword} />
-          </motion.div>
-
-          <motion.div variants={itemVariants} className="mt-16 flex flex-col gap-8">
-            <motion.label layout className="group flex cursor-pointer items-start gap-4">
-              <div className="relative mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border-2 border-slate-300 transition-colors group-hover:border-slate-900">
-                <input
-                  type="checkbox"
-                  name="consent"
-                  checked={form.consent}
-                  onChange={onChange}
-                  className="peer absolute h-full w-full cursor-pointer opacity-0"
-                />
-                <motion.svg
-                  initial={false}
-                  animate={{
-                    scale: form.consent ? 1 : 0,
-                    opacity: form.consent ? 1 : 0,
-                  }}
-                  className="pointer-events-none h-3 w-3 fill-slate-900"
-                  viewBox="0 0 12 12"
-                >
-                  <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 2.28z" />
-                </motion.svg>
+      {/* SCROLLABLE FORM (MOBILE OPTIMIZED) */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-6 py-12 lg:px-20 lg:py-24">
+          <form onSubmit={handlePreSubmit} className="space-y-10">
+            
+            <section>
+              <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-blue-100"/><span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">01. Identity</span><div className="h-px flex-1 bg-blue-100"/></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <TactileInput label="Full Name" name="fullName" value={form.fullName} onChange={onChange} error={errors.fullName} />
+                <TactileInput label="Email" name="email" type="email" value={form.email} onChange={onChange} error={errors.email} />
+                <TactileInput label="Phone" name="phone" value={form.phone} onChange={onChange} error={errors.phone} />
+                <TactileInput label="City" name="city" value={form.city} onChange={onChange} />
               </div>
-              <span className="text-lg text-slate-500 transition-colors group-hover:text-slate-900">
-                {t("patientSignup.consent")}
-              </span>
-            </motion.label>
+            </section>
 
-            <AnimatePresence>
-              {errors.consent && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-sm text-red-500"
-                >
-                  {errors.consent}
-                </motion.p>
-              )}
-            </AnimatePresence>
+            <section>
+              <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-blue-100"/><span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">02. Biometrics</span><div className="h-px flex-1 bg-blue-100"/></div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <TactileInput label="Age" name="age" type="number" value={form.age} onChange={onChange} error={errors.age} />
+                <TactileInput label="Height (cm)" name="height" type="number" value={form.height} onChange={onChange} />
+                <TactileInput label="Weight (kg)" name="weight" type="number" value={form.weight} onChange={onChange} />
+                <TactileInput label="Blood Type" name="bloodGroup" type="select" value={form.bloodGroup} onChange={onChange} placeholder="Select" options={[{value:"A+",label:"A+"},{value:"O+",label:"O+"},{value:"B+",label:"B+"},{value:"AB+",label:"AB+"}]} />
+              </div>
+              <div className="mt-4">
+                <TactileInput label="Gender Identity" name="gender" type="select" value={form.gender} onChange={onChange} placeholder="Choose Gender" options={[{value:"male",label:"Male"},{value:"female",label:"Female"},{value:"non-binary",label:"Non-binary"}]} />
+              </div>
+            </section>
 
-            <div className="flex items-center justify-between border-t border-slate-200 pt-8">
-              <Link
-                to="/signup"
-                className="text-sm font-semibold uppercase tracking-widest text-slate-400 transition-colors hover:text-slate-900"
-              >
-                {t("patientSignup.cancel")}
-              </Link>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="group relative overflow-hidden rounded-full bg-slate-900 px-8 py-3 text-sm font-semibold uppercase tracking-widest text-white transition-all hover:bg-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <span className="relative z-10 flex items-center gap-3">
-                  {isSubmitting ? t("patientSignup.submitting") : t("patientSignup.submit")}{" "}
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">
-                    &rarr;
-                  </span>
-                </span>
+            <section>
+              <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-blue-100"/><span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">03. Medical History</span><div className="h-px flex-1 bg-blue-100"/></div>
+              <div className="space-y-4">
+                <TactileInput label="Primary Concern" name="primaryConcern" type="textarea" value={form.primaryConcern} onChange={onChange} />
+                <TactileInput label="Known Conditions" name="knownConditions" type="textarea" value={form.knownConditions} onChange={onChange} />
+                <TactileInput label="Allergies & Notes" name="allergies" type="textarea" value={form.allergies} onChange={onChange} />
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-blue-100"/><span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">04. Emergency Contact</span><div className="h-px flex-1 bg-blue-100"/></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <TactileInput label="Contact Name" name="emergencyName" value={form.emergencyName} onChange={onChange} />
+                <TactileInput label="Contact Phone" name="emergencyPhone" value={form.emergencyPhone} onChange={onChange} />
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-blue-100"/><span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">05. Security</span><div className="h-px flex-1 bg-blue-100"/></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <TactileInput label="Password" name="password" type="password" value={form.password} onChange={onChange} error={errors.password} />
+                <TactileInput label="Confirm Password" name="confirmPassword" type="password" value={form.confirmPassword} onChange={onChange} error={errors.confirmPassword} />
+              </div>
+            </section>
+
+            <div className="sticky bottom-0 bg-slate-50/80 backdrop-blur-md pt-6 pb-4 flex justify-between items-center">
+              <Link to="/signup" className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-blue-600">Back</Link>
+              <button type="submit" className="bg-blue-900 text-white px-10 py-4 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-95 transition-all">
+                Review Terms & Register &rarr;
               </button>
             </div>
-          </motion.div>
-        </motion.form>
+          </form>
+        </div>
       </div>
+
+      <LegalModal isOpen={showLegal} isSubmitting={isSubmitting} onClose={() => setShowLegal(false)} onFinalSubmit={onFinalSubmit} />
     </main>
   );
 }

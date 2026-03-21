@@ -1,60 +1,310 @@
 ﻿import { useRef } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
-import { FileUp, MessageSquareText, Route, Stethoscope, ArrowUpRight } from "lucide-react";
+import {
+  FileUp,
+  MessageSquareText,
+  Route,
+  Stethoscope,
+  ArrowUpRight,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
-
-const easeSmooth = [0.22, 1, 0.36, 1];
 
 export default function HowToUse() {
   const { t } = useTranslation();
-  const tr = (key, defaultValue, options = {}) => t(key, { defaultValue, ...options });
+  const tr = (key, defaultValue, options = {}) =>
+    t(key, { defaultValue, ...options });
+
   const sectionRef = useRef(null);
 
   const steps = [
-    { number: "01", title: tr("howToUse.steps.s1.title", "Share symptoms"), description: tr("howToUse.steps.s1.description", "Start with a guided flow that makes it easier to describe symptoms clearly and without pressure."), icon: MessageSquareText, size: "lg:col-span-2 lg:row-span-1", bg: "from-[#e7f4ec] via-[#edf8f1] to-[#f6fcf8]", accent: "#3B8F72" },
-    { number: "02", title: tr("howToUse.steps.s2.title", "Add reports"), description: tr("howToUse.steps.s2.description", "Upload medical reports and notes to create better context."), icon: FileUp, size: "lg:col-span-1 lg:row-span-1", bg: "from-[#e3f1e8] via-[#eaf7ef] to-[#f5fbf7]", accent: "#5CA287" },
-    { number: "03", title: tr("howToUse.steps.s3.title", "Get direction"), description: tr("howToUse.steps.s3.description", "VedaAI organizes data to point you toward the next care step."), icon: Route, size: "lg:col-span-1 lg:row-span-1", bg: "from-[#e8f5ed] via-[#eef9f3] to-[#f8fcfa]", accent: "#4C967A" },
-    { number: "04", title: tr("howToUse.steps.s4.title", "Continue care"), description: tr("howToUse.steps.s4.description", "Get a structured summary for your next doctor conversation."), icon: Stethoscope, size: "lg:col-span-2 lg:row-span-1", bg: "from-[#e7f4ec] via-[#edf8f1] to-[#f6fcf8]", accent: "#3B8F72" },
+    {
+      number: "01",
+      title: tr("howToUse.steps.s1.title", "Share symptoms"),
+      description: tr(
+        "howToUse.steps.s1.description",
+        "Start with a guided flow that makes it easier to describe symptoms clearly and without pressure."
+      ),
+      icon: MessageSquareText,
+      accent: "#63A9FF",
+    },
+    {
+      number: "02",
+      title: tr("howToUse.steps.s2.title", "Add reports"),
+      description: tr(
+        "howToUse.steps.s2.description",
+        "Upload medical reports and notes to create better context."
+      ),
+      icon: FileUp,
+      accent: "#7BB8FF",
+    },
+    {
+      number: "03",
+      title: tr("howToUse.steps.s3.title", "Get direction"),
+      description: tr(
+        "howToUse.steps.s3.description",
+        "VedaAI organizes data to point you toward the next care step."
+      ),
+      icon: Route,
+      accent: "#8FC8FF",
+    },
+    {
+      number: "04",
+      title: tr("howToUse.steps.s4.title", "Continue care"),
+      description: tr(
+        "howToUse.steps.s4.description",
+        "Get a structured summary for your next doctor conversation."
+      ),
+      icon: Stethoscope,
+      accent: "#63A9FF",
+    },
   ];
 
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start 88%", "end 20%"] });
-  const headingY = useSpring(useTransform(scrollYProgress, [0, 1], [42, -20]), { stiffness: 80, damping: 24, mass: 1 });
-  const headingOpacity = useSpring(useTransform(scrollYProgress, [0, 0.28], [0, 1]), { stiffness: 75, damping: 22, mass: 1 });
-  const bgY = useSpring(useTransform(scrollYProgress, [0, 1], [0, -48]), { stiffness: 60, damping: 22, mass: 1.2 });
-  const pathProgress = useSpring(useTransform(scrollYProgress, [0.1, 0.6], [0, 1]), { stiffness: 70, damping: 20, mass: 1.1 });
-  const pathGlow = useSpring(useTransform(scrollYProgress, [0.1, 0.6], [0.15, 1]), { stiffness: 70, damping: 20, mass: 1.1 });
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start 88%", "end 20%"],
+  });
+
+  const headingY = useSpring(useTransform(scrollYProgress, [0, 1], [28, -8]), {
+    stiffness: 90,
+    damping: 24,
+    mass: 1,
+  });
+
+  const headingOpacity = useSpring(
+    useTransform(scrollYProgress, [0, 0.24], [0, 1]),
+    { stiffness: 80, damping: 22, mass: 1 }
+  );
+
+  const bgShift = useSpring(useTransform(scrollYProgress, [0, 1], [0, -26]), {
+    stiffness: 60,
+    damping: 20,
+    mass: 1.2,
+  });
+
+  const lineProgress = useSpring(
+    useTransform(scrollYProgress, [0.08, 0.72], [0, 1]),
+    { stiffness: 80, damping: 22, mass: 1 }
+  );
 
   return (
-    <section id="how-to-use" ref={sectionRef} className="relative overflow-hidden py-20 lg:py-32" style={{ background: "radial-gradient(circle at 18% 18%, rgba(59,143,114,0.14), transparent 24%), radial-gradient(circle at 82% 22%, rgba(104,178,160,0.18), transparent 24%), radial-gradient(circle at 50% 85%, rgba(255,255,255,0.85), transparent 30%), linear-gradient(180deg, #eaf5ef 0%, #e2f1e8 34%, #edf7f1 68%, #f7fcf9 100%)" }}>
-      <motion.div style={{ y: bgY }} className="pointer-events-none absolute inset-0"><div className="absolute inset-0 opacity-[0.03] [background-image:linear-gradient(to_right,#3B8F72_1px,transparent_1px),linear-gradient(to_bottom,#3B8F72_1px,transparent_1px)] [background-size:4rem_4rem]" /><div className="absolute left-[8%] top-16 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(59,143,114,0.22),transparent_72%)] blur-3xl" /><div className="absolute right-[10%] top-24 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(104,178,160,0.2),transparent_72%)] blur-3xl" /><div className="absolute left-1/2 bottom-8 h-96 w-[40rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.9),transparent_74%)] blur-3xl" /></motion.div>
-      <div className="section-shell relative px-5 sm:px-10">
-        <motion.header style={{ y: headingY, opacity: headingOpacity }} className="mb-16 max-w-2xl">
-          <div className="flex items-center gap-3 text-[#3B8F72]"><div className="h-px w-8 bg-current" /><span className="text-xs font-bold uppercase tracking-[0.3em]">{tr("howToUse.sectionLabel", "Process")}</span></div>
-          <h2 className="mt-6 text-4xl font-semibold tracking-tight text-[#17362B] sm:text-5xl">{tr("howToUse.titleLine1", "A healthcare journey")}<br /><span className="text-[#3B8F72]/60">{tr("howToUse.titleAccent", "reimagined.")}</span></h2>
+    <section
+      id="how-to-use"
+      ref={sectionRef}
+      className="relative overflow-hidden py-16 sm:py-20 lg:py-24"
+      style={{
+        background:
+          "radial-gradient(circle at 16% 18%, rgba(99,169,255,0.16), transparent 22%), radial-gradient(circle at 84% 16%, rgba(191,226,255,0.28), transparent 22%), linear-gradient(180deg, #f8fbff 0%, #f2f8ff 50%, #fcfeff 100%)",
+      }}
+    >
+      <motion.div style={{ y: bgShift }} className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 opacity-[0.03] [background-image:linear-gradient(to_right,rgba(99,169,255,0.7)_1px,transparent_1px),linear-gradient(to_bottom,rgba(99,169,255,0.7)_1px,transparent_1px)] [background-size:72px_72px]" />
+        <div className="absolute left-[8%] top-8 h-48 w-48 rounded-full bg-[#63A9FF]/20 blur-[90px]" />
+        <div className="absolute right-[10%] top-10 h-56 w-56 rounded-full bg-[#CDE7FF]/55 blur-[100px]" />
+      </motion.div>
+
+      <div className="section-shell relative z-10 px-5 sm:px-8">
+        <motion.header
+          style={{ y: headingY, opacity: headingOpacity }}
+          className="mx-auto max-w-3xl text-center"
+        >
+          <div className="inline-flex items-center gap-3 text-[#63A9FF]">
+            <span className="h-px w-8 bg-current/50" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.28em]">
+              {tr("howToUse.sectionLabel", "Process")}
+            </span>
+            <span className="h-px w-8 bg-current/50" />
+          </div>
+
+          <h2 className="mt-5 text-3xl font-medium tracking-[-0.05em] text-[#102A43] sm:text-4xl lg:text-5xl">
+            {tr("howToUse.titleLine1", "A smoother path to care")}
+          </h2>
+
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#6A7F97] sm:text-[15px]">
+            {tr(
+              "howToUse.subtitle",
+              "A simple AI-guided experience that helps patients move from symptoms to the right next step with clarity."
+            )}
+          </p>
         </motion.header>
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-0 hidden lg:block"><svg viewBox="0 0 1200 640" className="h-full w-full overflow-visible" preserveAspectRatio="none"><defs><linearGradient id="vedaPathStroke" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="rgba(59,143,114,0.18)" /><stop offset="50%" stopColor="rgba(59,143,114,0.7)" /><stop offset="100%" stopColor="rgba(104,178,160,0.18)" /></linearGradient><filter id="vedaGlow"><feGaussianBlur stdDeviation="6" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs><motion.path d="M110 150 C 320 120, 390 220, 610 210 S 900 120, 1080 170" fill="none" stroke="url(#vedaPathStroke)" strokeWidth="2.5" strokeLinecap="round" filter="url(#vedaGlow)" style={{ pathLength: pathProgress, opacity: pathGlow }} /><motion.path d="M150 420 C 330 390, 470 470, 650 445 S 910 360, 1060 430" fill="none" stroke="url(#vedaPathStroke)" strokeWidth="2.5" strokeLinecap="round" filter="url(#vedaGlow)" style={{ pathLength: pathProgress, opacity: pathGlow }} /></svg></div>
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">{steps.map((step, index) => (<StepCard key={step.number} step={step} index={index} progress={scrollYProgress} tr={tr} />))}</div>
+
+        {/* desktop horizontal flow */}
+        <div className="relative mx-auto mt-14 hidden max-w-6xl lg:block">
+          <div className="absolute left-0 right-0 top-[3rem] h-px bg-gradient-to-r from-[#DDEEFF] via-[#B9DBFF] to-[#E8F4FF]" />
+          <motion.div
+            style={{ scaleX: lineProgress, transformOrigin: "left" }}
+            className="absolute left-0 right-0 top-[3rem] h-px origin-left bg-gradient-to-r from-[#63A9FF] via-[#8FC8FF] to-[#CDE7FF] shadow-[0_0_18px_rgba(99,169,255,0.3)]"
+          />
+
+          <div className="grid grid-cols-4 gap-6">
+            {steps.map((step, index) => (
+              <DesktopStep
+                key={step.number}
+                step={step}
+                index={index}
+                progress={scrollYProgress}
+                tr={tr}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* mobile stacked flow */}
+        <div className="relative mx-auto mt-12 max-w-2xl lg:hidden">
+          <div className="absolute left-4 top-0 h-full w-px bg-gradient-to-b from-[#DDEEFF] via-[#8FC8FF] to-[#EAF5FF]" />
+          <motion.div
+            style={{ scaleY: lineProgress, transformOrigin: "top" }}
+            className="absolute left-4 top-0 h-full w-px origin-top bg-gradient-to-b from-[#63A9FF] via-[#8FC8FF] to-[#D7EEFF] shadow-[0_0_18px_rgba(99,169,255,0.25)]"
+          />
+
+          <div className="space-y-8">
+            {steps.map((step, index) => (
+              <MobileStep
+                key={step.number}
+                step={step}
+                index={index}
+                progress={scrollYProgress}
+                tr={tr}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function StepCard({ step, index, progress, tr }) {
+function DesktopStep({ step, index, progress, tr }) {
   const Icon = step.icon;
-  const ranges = [[0.04, 0.28],[0.14, 0.4],[0.24, 0.5],[0.34, 0.62]];
-  const [start, end] = ranges[index];
-  const mid = start + (end - start) * 0.58;
-  const yOffset = [70, 98, 78, 106][index];
-  const xOffset = [-34, 30, -26, 30][index];
-  const rotateStart = [-2.8, 2.2, -2, 2][index];
-  const x = useSpring(useTransform(progress, [start, end], [xOffset, 0]), { stiffness: 95, damping: 24, mass: 1 });
-  const y = useSpring(useTransform(progress, [start, end], [yOffset, 0]), { stiffness: 95, damping: 24, mass: 1 });
-  const scale = useSpring(useTransform(progress, [start, mid, end], [0.9, 1.06, 0.99]), { stiffness: 85, damping: 20, mass: 1 });
-  const opacity = useSpring(useTransform(progress, [start, end], [0, 1]), { stiffness: 80, damping: 22, mass: 1 });
-  const rotate = useSpring(useTransform(progress, [start, end], [rotateStart, 0]), { stiffness: 85, damping: 20, mass: 1 });
-  const driftY = useSpring(useTransform(progress, [0, 1], [0, index % 2 === 0 ? -10 : 10]), { stiffness: 55, damping: 20, mass: 1.2 });
 
-  return <motion.article layout style={{ x, y, scale, opacity, rotate }} className={`group relative overflow-hidden rounded-[32px] border border-white/80 bg-white/55 p-8 shadow-[0_22px_56px_-24px_rgba(59,143,114,0.14)] backdrop-blur-xl transition-colors ${step.size} max-sm:p-6`}><motion.div style={{ y: driftY }} className={`pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] ${step.bg} opacity-95`} /><div className="pointer-events-none absolute right-[-20px] top-[-20px] h-32 w-32 rounded-full blur-3xl" style={{ background: `${step.accent}18` }} /><div className="pointer-events-none absolute inset-x-8 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${step.accent}88, transparent)` }} /><div className="pointer-events-none absolute inset-y-10 left-8 w-px" style={{ background: `linear-gradient(180deg, transparent, ${step.accent}35, transparent)` }} /><div className="relative flex h-full flex-col justify-between"><div className="flex items-start justify-between"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5"><Icon style={{ color: step.accent }} size={24} /></div><span className="select-none text-4xl font-black italic" style={{ color: `${step.accent}14` }}>{step.number}</span></div><div className="mt-12"><div className="mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ background: `${step.accent}12`, color: step.accent, border: `1px solid ${step.accent}1f` }}><div className="h-1 w-1 rounded-full animate-pulse" style={{ background: step.accent }} />{tr("howToUse.stepPrefix", "Step")} {step.number}</div><h3 className="text-2xl font-bold tracking-tight text-[#17362B]">{step.title}</h3><p className="mt-3 max-w-[280px] text-base leading-relaxed text-[#5E756B] sm:max-w-none">{step.description}</p></div><div className="mt-8 flex items-center justify-between border-t border-black/5 pt-6"><span className="text-xs font-bold uppercase tracking-widest text-[#7C8F86]">{tr("howToUse.flowLabel", "VedaAI Flow")}</span><div className="flex h-10 w-10 items-center justify-center rounded-full text-white" style={{ background: step.accent }}><ArrowUpRight size={20} /></div></div></div></motion.article>;
+  const ranges = [
+    [0.06, 0.22],
+    [0.18, 0.34],
+    [0.3, 0.46],
+    [0.42, 0.62],
+  ];
+
+  const [start, end] = ranges[index];
+
+  const opacity = useSpring(useTransform(progress, [start, end], [0, 1]), {
+    stiffness: 90,
+    damping: 24,
+    mass: 1,
+  });
+
+  const y = useSpring(useTransform(progress, [start, end], [24, 0]), {
+    stiffness: 100,
+    damping: 24,
+    mass: 1,
+  });
+
+  const scale = useSpring(useTransform(progress, [start, end], [0.96, 1]), {
+    stiffness: 100,
+    damping: 22,
+    mass: 1,
+  });
+
+  return (
+    <motion.article style={{ opacity, y, scale }} className="relative pt-20">
+      <div
+        className="absolute left-1/2 top-[1.6rem] z-10 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full bg-white/90 shadow-[0_10px_25px_-14px_rgba(99,169,255,0.45)] ring-1 ring-[#DCEEFF]"
+        style={{ color: step.accent }}
+      >
+        <Icon size={18} />
+      </div>
+
+      <div className="px-3 text-center">
+        <div
+          className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em]"
+          style={{ color: step.accent }}
+        >
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: step.accent }} />
+          {tr("howToUse.stepPrefix", "Step")} {step.number}
+        </div>
+
+        <h3 className="mt-3 text-xl font-medium tracking-[-0.04em] text-[#102A43]">
+          {step.title}
+        </h3>
+
+        <p className="mx-auto mt-3 max-w-[240px] text-sm leading-7 text-[#6A7F97]">
+          {step.description}
+        </p>
+
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#8AA3BC]">
+            {tr("howToUse.flowLabel", "VedaAI Flow")}
+          </span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/85 text-[#63A9FF] shadow-[0_8px_20px_-12px_rgba(99,169,255,0.42)] ring-1 ring-[#DCEEFF]">
+            <ArrowUpRight size={15} />
+          </div>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+function MobileStep({ step, index, progress, tr }) {
+  const Icon = step.icon;
+
+  const ranges = [
+    [0.06, 0.22],
+    [0.18, 0.34],
+    [0.3, 0.46],
+    [0.42, 0.62],
+  ];
+
+  const [start, end] = ranges[index];
+
+  const opacity = useSpring(useTransform(progress, [start, end], [0, 1]), {
+    stiffness: 90,
+    damping: 24,
+    mass: 1,
+  });
+
+  const x = useSpring(useTransform(progress, [start, end], [-20, 0]), {
+    stiffness: 100,
+    damping: 24,
+    mass: 1,
+  });
+
+  const y = useSpring(useTransform(progress, [start, end], [24, 0]), {
+    stiffness: 100,
+    damping: 24,
+    mass: 1,
+  });
+
+  return (
+    <motion.article style={{ opacity, x, y }} className="relative pl-12">
+      <div
+        className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-[0_10px_20px_-12px_rgba(99,169,255,0.42)] ring-1 ring-[#DCEEFF]"
+        style={{ color: step.accent }}
+      >
+        <Icon size={16} />
+      </div>
+
+      <div
+        className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em]"
+        style={{ color: step.accent }}
+      >
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: step.accent }} />
+        {tr("howToUse.stepPrefix", "Step")} {step.number}
+      </div>
+
+      <h3 className="mt-2 text-xl font-medium tracking-[-0.04em] text-[#102A43]">
+        {step.title}
+      </h3>
+
+      <p className="mt-2 text-sm leading-7 text-[#6A7F97]">
+        {step.description}
+      </p>
+
+      <div className="mt-4 flex items-center gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#8AA3BC]">
+          {tr("howToUse.flowLabel", "VedaAI Flow")}
+        </span>
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/85 text-[#63A9FF] shadow-[0_8px_18px_-12px_rgba(99,169,255,0.42)] ring-1 ring-[#DCEEFF]">
+          <ArrowUpRight size={15} />
+        </div>
+      </div>
+    </motion.article>
+  );
 }

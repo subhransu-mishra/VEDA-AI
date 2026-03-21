@@ -12,6 +12,7 @@ import {
   Star,
   ShieldCheck,
   Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -36,13 +37,72 @@ const linkVariants = {
   open: { opacity: 1, x: 0, transition: { duration: 0.4, ease: easeSmooth } },
 };
 
+const urgentPulse = {
+  animate: {
+    boxShadow: [
+      "0 0 0 0 rgba(185,56,47,0.20), 0 12px 26px -16px rgba(185,56,47,0.85)",
+      "0 0 0 7px rgba(185,56,47,0.06), 0 18px 38px -16px rgba(185,56,47,1)",
+      "0 0 0 0 rgba(185,56,47,0.20), 0 12px 26px -16px rgba(185,56,47,0.85)",
+    ],
+    scale: [1, 1.015, 1],
+  },
+  transition: {
+    duration: 1.8,
+    repeat: Number.POSITIVE_INFINITY,
+    ease: "easeInOut",
+  },
+};
+
 function statusStyle(status) {
-  if (status === "verified")
+  if (status === "verified") {
     return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  }
   if (status === "rejected") return "bg-rose-50 text-rose-700 border-rose-200";
-  if (status === "pending")
+  if (status === "pending") {
     return "bg-amber-50 text-amber-700 border-amber-200";
+  }
   return "bg-slate-50 text-slate-600 border-slate-200";
+}
+
+function EmergencyCta({ label, onClick, mobile = false }) {
+  if (mobile) {
+    return (
+      <motion.button
+        variants={linkVariants}
+        animate={urgentPulse.animate}
+        transition={urgentPulse.transition}
+        onClick={onClick}
+        className="relative flex w-full items-center justify-between overflow-hidden rounded-[1.5rem] bg-[linear-gradient(135deg,#b9382f_0%,#d14b40_55%,#8f231c_100%)] px-4 py-4 text-left text-white"
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(255,196,180,0.18),transparent_34%)]" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/14 backdrop-blur-sm">
+            <ShieldAlert size={18} />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/72">
+              Emergency
+            </p>
+            <p className="mt-1 text-sm font-semibold">{label}</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="relative text-white/82" />
+      </motion.button>
+    );
+  }
+
+  return (
+    <motion.button
+      animate={urgentPulse.animate}
+      transition={urgentPulse.transition}
+      onClick={onClick}
+      className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-white/18 bg-[linear-gradient(135deg,#b9382f_0%,#d14b40_55%,#8f231c_100%)] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.24),transparent_38%)]" />
+      <ShieldAlert size={12} className="relative" />
+      <span className="relative">{label}</span>
+    </motion.button>
+  );
 }
 
 export default function Navbar({
@@ -52,6 +112,7 @@ export default function Navbar({
   onOpenLogin,
   onOpenSignup,
   onGetStarted,
+  onOpenEmergency,
 }) {
   const { t, i18n } = useTranslation();
   const tr = (key, defaultValue, options = {}) =>
@@ -136,6 +197,11 @@ export default function Navbar({
     navigate(dashboardPath);
   };
 
+  const goEmergency = () => {
+    setMenuOpen(false);
+    onOpenEmergency?.();
+  };
+
   const primaryLabel = isAdmin
     ? tr("common.adminPanel", "Admin Panel")
     : doctorNeedsVerification
@@ -147,61 +213,68 @@ export default function Navbar({
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="fixed inset-x-0 top-0 z-[999] px-4 py-5 sm:px-6 sm:py-6 pointer-events-none"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[999] px-4 py-4 sm:px-6 sm:py-5"
       >
-        <div className="mx-auto max-w-7xl grid grid-cols-2 lg:grid-cols-3 items-center">
-          <div className="flex justify-start">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 lg:gap-5">
+          <div className="flex min-w-0 flex-1 justify-start lg:flex-[0_0_auto]">
             <button
               onClick={() => handleSectionNav("home")}
               className="pointer-events-auto flex items-center gap-3"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#0a1128,#1b2d67)] text-white shadow-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#0a1128,#1b2d67)] text-white shadow-lg">
                 <span className="text-lg font-serif italic">V</span>
               </div>
-              <span className="text-lg font-bold tracking-tighter text-slate-900">
+              <span className="truncate text-lg font-bold tracking-tighter text-slate-900">
                 VEDA
-                <span className="text-slate-400 italic font-light text-xs ml-0.5">
+                <span className="ml-0.5 text-xs font-light italic text-slate-400">
                   AI
                 </span>
               </span>
             </button>
           </div>
 
-          <nav className="pointer-events-auto hidden lg:flex items-center justify-center gap-1 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/50 px-2 py-1 shadow-sm">
+          <nav className="pointer-events-auto hidden flex-1 items-center justify-center gap-1 rounded-full border border-slate-200/60 bg-white/76 px-2 py-1.5 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl lg:flex">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleSectionNav(item.id)}
-                className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors"
+                className="rounded-full px-3 xl:px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 transition-colors hover:bg-slate-100/70 hover:text-slate-900"
               >
                 {item.label}
               </button>
             ))}
           </nav>
 
-          <div className="flex justify-end items-center gap-2 pointer-events-auto">
-            <select
-              value={i18n.language}
-              onChange={(e) => i18n.changeLanguage(e.target.value)}
-              className="hidden sm:block rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700 outline-none"
-            >
-              <option value="en">EN</option>
-              <option value="hi">HI</option>
-              <option value="or">OR</option>
-            </select>
+          <div className="pointer-events-auto hidden items-center justify-end gap-2 lg:flex lg:flex-[0_0_auto]">
+            <div className="rounded-full border border-slate-200/60 bg-white/80 px-1.5 py-1 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+              <select
+                value={i18n.language}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+                className="rounded-full bg-transparent px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-700 outline-none"
+              >
+                <option value="en">EN</option>
+                <option value="hi">HI</option>
+                <option value="or">OR</option>
+              </select>
+            </div>
 
-            <div className="hidden lg:flex items-center gap-1 bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-full p-1 shadow-sm">
+            <div className="flex items-center gap-1 rounded-full border border-slate-200/60 bg-white/76 p-1 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+              <EmergencyCta
+                label={tr("common.urgentHelp", "Need Help?")}
+                onClick={goEmergency}
+              />
+
               {!isLoggedIn ? (
                 <>
                   <button
                     onClick={() => onOpenLogin?.("patient")}
-                    className={`px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${loginActive ? "text-blue-600" : "text-slate-900"}`}
+                    className={`rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${loginActive ? "text-blue-600" : "text-slate-900"}`}
                   >
                     {tr("common.login", "Login")}
                   </button>
                   <button
                     onClick={onOpenSignup}
-                    className={`px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] rounded-full transition-colors ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
+                    className={`rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
                   >
                     {tr("common.signUp", "Sign up")}
                   </button>
@@ -223,30 +296,33 @@ export default function Navbar({
                   {showGetStarted && (
                     <button
                       onClick={onGetStarted}
-                      className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700"
+                      className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700"
                     >
                       <Sparkles size={12} />
-                      {tr("common.getStarted", "Get Started")}
+                      {tr("common.getStarted", "Begin Diagnosis")}
                     </button>
                   )}
                   <button
                     onClick={goPrimaryAuthRoute}
-                    className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600"
+                    className="rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600"
                   >
                     {primaryLabel}
                   </button>
                   <button
                     onClick={() => setShowLogoutConfirm(true)}
-                    className="px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-red-500"
+                    className="rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-red-500"
                   >
                     {tr("common.logout", "Logout")}
                   </button>
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="pointer-events-auto flex flex-1 justify-end lg:hidden">
             <button
               onClick={() => setMenuOpen(true)}
-              className="lg:hidden h-10 w-10 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-900 shadow-sm"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm"
             >
               <Menu size={20} />
             </button>
@@ -269,10 +345,10 @@ export default function Navbar({
               initial="closed"
               animate="open"
               exit="closed"
-              className="fixed right-0 top-0 z-[1001] h-full w-[82%] max-w-[360px] bg-white lg:hidden flex flex-col"
+              className="fixed right-0 top-0 z-[1001] flex h-full w-[84%] max-w-[370px] flex-col bg-white lg:hidden"
             >
-              <div className="flex items-center justify-between p-8 border-b border-slate-50">
-                <span className="text-xs font-bold tracking-[0.3em] uppercase text-slate-400">
+              <div className="flex items-center justify-between border-b border-slate-100 p-7">
+                <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
                   {tr("common.navigation", "Navigation")}
                 </span>
                 <button
@@ -282,24 +358,34 @@ export default function Navbar({
                   <X size={24} />
                 </button>
               </div>
-              <div className="px-4 pt-4">
-                <select
-                  value={i18n.language}
-                  onChange={(e) => i18n.changeLanguage(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-medium text-slate-700 outline-none"
-                >
-                  <option value="en">English</option>
-                  <option value="hi">Hindi</option>
-                  <option value="or">Odia</option>
-                </select>
+
+              <div className="space-y-4 px-4 pt-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                  <select
+                    value={i18n.language}
+                    onChange={(e) => i18n.changeLanguage(e.target.value)}
+                    className="w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none"
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">Hindi</option>
+                    <option value="or">Odia</option>
+                  </select>
+                </div>
+
+                <EmergencyCta
+                  label={tr("common.urgentHelp", "Need Help?")}
+                  onClick={goEmergency}
+                  mobile
+                />
               </div>
-              <div className="flex flex-col py-6 px-4">
+
+              <div className="flex flex-col px-4 py-6">
                 {navItems.map((item) => (
                   <motion.button
                     key={item.id}
                     variants={linkVariants}
                     onClick={() => handleSectionNav(item.id)}
-                    className="flex items-center justify-between p-4 rounded-2xl group"
+                    className="group flex items-center justify-between rounded-2xl p-4"
                   >
                     <div className="flex items-center gap-4">
                       <item.icon
@@ -317,9 +403,10 @@ export default function Navbar({
                   </motion.button>
                 ))}
               </div>
+
               <motion.div
                 variants={linkVariants}
-                className="mt-auto p-6 bg-slate-50/80 space-y-3"
+                className="mt-auto space-y-3 bg-slate-50/80 p-6"
               >
                 {!isLoggedIn ? (
                   <>
@@ -328,7 +415,7 @@ export default function Navbar({
                         setMenuOpen(false);
                         onOpenLogin?.("patient");
                       }}
-                      className={`w-full border py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest ${loginActive ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-slate-200 text-slate-900"}`}
+                      className={`w-full rounded-2xl border py-4 text-[10px] font-bold uppercase tracking-widest ${loginActive ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-900"}`}
                     >
                       {tr("common.login", "Login")}
                     </button>
@@ -337,7 +424,7 @@ export default function Navbar({
                         setMenuOpen(false);
                         onOpenSignup?.();
                       }}
-                      className={`w-full py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/10 ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
+                      className={`w-full rounded-2xl py-4 text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/10 ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
                     >
                       {tr("common.signUp", "Sign up")}
                     </button>
@@ -364,15 +451,15 @@ export default function Navbar({
                           setMenuOpen(false);
                           onGetStarted?.();
                         }}
-                        className="w-full bg-emerald-50 text-emerald-700 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-50 py-4 text-[10px] font-bold uppercase tracking-widest text-emerald-700"
                       >
                         <Sparkles size={14} />
-                        {tr("common.getStarted", "Get Started")}
+                        {tr("common.getStarted", "Begin Diagnosis")}
                       </button>
                     )}
                     <button
                       onClick={goPrimaryAuthRoute}
-                      className="w-full bg-[#0a1128] text-white py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0a1128] py-4 text-[10px] font-bold uppercase tracking-widest text-white"
                     >
                       <LayoutDashboard size={14} /> {primaryLabel}
                     </button>
@@ -381,7 +468,7 @@ export default function Navbar({
                         setMenuOpen(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="w-full bg-red-50 text-red-500 py-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-50 py-4 text-[10px] font-bold uppercase tracking-widest text-red-500"
                     >
                       <LogOut size={14} /> {tr("common.logout", "Logout")}
                     </button>
@@ -407,15 +494,15 @@ export default function Navbar({
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-[2.5rem] p-10 text-center shadow-2xl"
+              className="relative w-full max-w-sm rounded-[2.5rem] bg-white p-10 text-center shadow-2xl"
             >
-              <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-500">
                 <LogOut size={28} />
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
+              <h3 className="text-2xl font-bold tracking-tight text-slate-900">
                 {tr("navbar.confirmLogoutTitle", "Wait!")}
               </h3>
-              <p className="text-slate-500 mt-2 text-sm">
+              <p className="mt-2 text-sm text-slate-500">
                 {tr(
                   "navbar.confirmLogoutText",
                   "Are you sure you want to log out of your portal?",
@@ -427,13 +514,13 @@ export default function Navbar({
                     onLogout?.();
                     setShowLogoutConfirm(false);
                   }}
-                  className="w-full py-4 bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-red-600 transition-colors"
+                  className="w-full rounded-2xl bg-red-500 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-red-600"
                 >
                   {tr("common.yesSignOut", "Yes, Sign Out")}
                 </button>
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full py-4 bg-slate-100 text-slate-400 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em]"
+                  className="w-full rounded-2xl bg-slate-100 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400"
                 >
                   {tr("common.stayLoggedIn", "Stay Logged In")}
                 </button>
