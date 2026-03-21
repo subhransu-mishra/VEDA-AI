@@ -718,10 +718,10 @@ export default function PatientAnalysisPage({ session }) {
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 {tr("analysisPage.coreFlow", "VedaAI Core Flow")}
               </p>
-              <h1 className="mt-1 bg-linear-to-r from-slate-900 via-blue-800 to-emerald-700 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
+              <h1 className="mt-1 p-0.5 bg-linear-to-r from-blue-900 via-blue-800 to-blue-700 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
                 {tr(
                   "analysisPage.title",
-                  "Analysis + AI Chat + Doctor Connect",
+                  "Start Diagnosis with AI",
                 )}
               </h1>
             </div>
@@ -780,7 +780,7 @@ export default function PatientAnalysisPage({ session }) {
             className="rounded-3xl border border-white/70 bg-white/75 p-4 shadow-[0_22px_55px_-35px_rgba(15,23,42,0.45)] backdrop-blur-2xl sm:p-5"
           >
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              {tr("analysisPage.patientIntake", "Patient Intake")}
+              {tr("analysisPage.patientIntake", "Start Diagnosis")}
             </p>
             <p className="mt-1 text-sm text-slate-600">
               {tr(

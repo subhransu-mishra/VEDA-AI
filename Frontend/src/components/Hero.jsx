@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { ShieldAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const avatars = [
@@ -13,10 +14,43 @@ const avatars = [
 
 const easeSmooth = [0.22, 1, 0.36, 1];
 
+const urgentPulse = {
+  animate: {
+    boxShadow: [
+      "0 0 0 0 rgba(185,56,47,0.18), 0 14px 32px -18px rgba(185,56,47,0.92)",
+      "0 0 0 8px rgba(185,56,47,0.05), 0 20px 40px -18px rgba(185,56,47,1)",
+      "0 0 0 0 rgba(185,56,47,0.18), 0 14px 32px -18px rgba(185,56,47,0.92)",
+    ],
+    scale: [1, 1.018, 1],
+  },
+  transition: {
+    duration: 1.8,
+    repeat: Number.POSITIVE_INFINITY,
+    ease: "easeInOut",
+  },
+};
+
+function EmergencyHeroButton({ label, onClick }) {
+  return (
+    <motion.button
+      type="button"
+      animate={urgentPulse.animate}
+      transition={urgentPulse.transition}
+      onClick={onClick}
+      className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-white/12 bg-[linear-gradient(135deg,#b9382f_0%,#d14b40_55%,#8f231c_100%)] px-5 py-3 text-sm font-semibold text-white"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.24),transparent_38%)]" />
+      <ShieldAlert size={16} className="relative" />
+      <span className="relative">{label}</span>
+    </motion.button>
+  );
+}
+
 export default function Hero({
   onOpenLogin = () => {},
   onOpenSignup = () => {},
   onGetStarted = () => {},
+  onOpenEmergency = () => {},
   isLoggedIn = false,
   session = null,
 }) {
@@ -103,7 +137,7 @@ export default function Hero({
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.95, delay: 0.22, ease: easeSmooth }}
-              className="mt-8 flex items-center justify-center gap-3 lg:hidden"
+              className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:hidden"
             >
               <button
                 type="button"
@@ -119,6 +153,10 @@ export default function Hero({
               >
                 {tr("hero.signUp", "Sign up")}
               </button>
+              <EmergencyHeroButton
+                label={tr("common.urgentHelp", "Need Help?")}
+                onClick={onOpenEmergency}
+              />
             </motion.div>
           )}
 
@@ -127,17 +165,60 @@ export default function Hero({
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.95, delay: 0.22, ease: easeSmooth }}
-              className="mt-8 flex items-center justify-center lg:hidden"
+              className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:hidden"
             >
               <button
                 type="button"
                 onClick={onGetStarted}
                 className="btn-primary px-6 py-3 text-sm font-semibold"
               >
-                {tr("common.getStarted", "Get Started")}
+                {tr("common.getStarted", "Begin Diagnosis")}
               </button>
+              <EmergencyHeroButton
+                label={tr("common.urgentHelp", "Need Help?")}
+                onClick={onOpenEmergency}
+              />
             </motion.div>
           )}
+
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.95, delay: 0.24, ease: easeSmooth }}
+            className="mt-8 hidden items-center justify-center gap-3 lg:flex"
+          >
+            {!isLoggedIn ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onOpenLogin}
+                  className="btn-secondary px-6 py-3 text-sm font-semibold"
+                >
+                  {tr("hero.login", "Login")}
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenSignup}
+                  className="btn-primary px-6 py-3 text-sm font-semibold"
+                >
+                  {tr("hero.signUp", "Sign up")}
+                </button>
+              </>
+            ) : showMobileGetStarted ? (
+              <button
+                type="button"
+                onClick={onGetStarted}
+                className="btn-primary px-6 py-3 text-sm font-semibold"
+              >
+                {tr("common.getStarted", "Begin Diagnosis")}
+              </button>
+            ) : null}
+
+            <EmergencyHeroButton
+              label={tr("common.urgentHelp", "Need Help?")}
+              onClick={onOpenEmergency}
+            />
+          </motion.div>
         </div>
 
         {showMessage && (
