@@ -210,7 +210,7 @@ const analysisPageEn = {
   consultationCreated:
     "Consultation request created successfully. Doctor assigned: {{doctorName}}.",
   coreFlow: "VedaAI Core Flow",
-  title: "Analysis + AI Chat + Doctor Connect",
+  title: "Start Diagnosis with AI",
   dashboard: "Dashboard",
   hideChat: "Hide Chat",
   aiChat: "AI Chat",
@@ -1363,7 +1363,9 @@ const resources = {
         dashboard: "Dashboard",
         verification: "Verification",
         adminPanel: "Admin Panel",
-        getStarted: "Get Started",
+        getStarted: "Begin Diagnosis",
+        urgentHelp: "Need Help?",
+        emergency: "Emergency",
         cancel: "Cancel",
         close: "Close",
         yesSignOut: "Yes, Sign Out",
@@ -1489,6 +1491,41 @@ const resources = {
       testimonials: testimonialsEn,
       analysisPage: analysisPageEn,
       patientDashboard: patientDashboardEn,
+      emergencyPage: {
+        label: "Rapid support access",
+        title: "Emergency Support",
+        subtitle: "Fast access to urgent guidance for severe, time-sensitive, or deeply private health situations.",
+        priority: "Priority",
+        priorityValue: "Immediate response",
+        speed: "Fast path",
+        speedBody: "Check red flags, choose urgent action, and prepare a summary for immediate care.",
+        redFlags: "Red flags",
+        redFlagsTitle: "Know when to act now",
+        nextStep: "Next step",
+        nextStepTitle: "Move fast, stay clear",
+        nextStepBody: "This page is ready for emergency triage, call actions, and private urgent support flows. Next we can build the actual rapid-check experience here.",
+        comingSoon: "Feature path ready",
+        actions: {
+          a1: {
+            title: "Emergency check",
+            text: "Start a rapid urgency check for severe or time-sensitive symptoms.",
+          },
+          a2: {
+            title: "Call for support",
+            text: "Reach emergency services, hospital support, or a trusted contact quickly.",
+          },
+          a3: {
+            title: "Share location",
+            text: "Get ready to share your location and a short symptom summary with care teams.",
+          },
+        },
+        flags: {
+          f1: "Chest pain or heavy pressure",
+          f2: "Trouble breathing or sudden weakness",
+          f3: "Heavy bleeding or loss of consciousness",
+          f4: "Severe pain in sensitive body areas",
+        },
+      },
     },
   },
   hi: {
@@ -1504,7 +1541,9 @@ const resources = {
         dashboard: "डैशबोर्ड",
         verification: "वेरिफिकेशन",
         adminPanel: "एडमिन पैनल",
-        getStarted: "शुरू करें",
+        getStarted: "जांच शुरू करें",
+        urgentHelp: "मदद चाहिए?",
+        emergency: "आपातकाल",
         cancel: "रद्द करें",
         close: "बंद करें",
         yesSignOut: "हाँ, साइन आउट करें",
@@ -1630,6 +1669,41 @@ const resources = {
       testimonials: testimonialsHi,
       analysisPage: analysisPageHi,
       patientDashboard: patientDashboardHi,
+      emergencyPage: {
+        label: "त्वरित सहायता पहुँच",
+        title: "आपातकालीन सहायता",
+        subtitle: "गंभीर, समय-संवेदनशील या अत्यंत निजी स्वास्थ्य स्थितियों के लिए तेज़ सहायता।",
+        priority: "प्राथमिकता",
+        priorityValue: "तुरंत प्रतिक्रिया",
+        speed: "तेज़ मार्ग",
+        speedBody: "रेड फ्लैग्स पहचानें, अगला कदम चुनें और तुरंत देखभाल के लिए सारांश तैयार करें।",
+        redFlags: "रेड फ्लैग्स",
+        redFlagsTitle: "जानें कब तुरंत कदम उठाना है",
+        nextStep: "अगला कदम",
+        nextStepTitle: "तेज़ रहें, स्पष्ट रहें",
+        nextStepBody: "यह पेज आपातकालीन ट्रायेज, कॉल एक्शन और निजी त्वरित सहायता के लिए तैयार है। अगला चरण यहीं बनाया जा सकता है।",
+        comingSoon: "फीचर पथ तैयार है",
+        actions: {
+          a1: {
+            title: "आपात जांच",
+            text: "गंभीर या समय-संवेदनशील लक्षणों के लिए तेज़ जाँच शुरू करें।",
+          },
+          a2: {
+            title: "सहायता के लिए कॉल",
+            text: "आपात सेवा, अस्पताल सहायता या किसी भरोसेमंद व्यक्ति तक जल्दी पहुँचें।",
+          },
+          a3: {
+            title: "लोकेशन साझा करें",
+            text: "देखभाल टीम के साथ स्थान और छोटा लक्षण सारांश साझा करने के लिए तैयार रहें।",
+          },
+        },
+        flags: {
+          f1: "सीने में दर्द या भारी दबाव",
+          f2: "सांस लेने में दिक्कत या अचानक कमजोरी",
+          f3: "भारी रक्तस्राव या बेहोशी",
+          f4: "निजी अंगों में तेज़ दर्द",
+        },
+      },
     },
   },
   or: {
@@ -1645,7 +1719,9 @@ const resources = {
         dashboard: "ଡ୍ୟାଶବୋର୍ଡ",
         verification: "ଭେରିଫିକେସନ",
         adminPanel: "ଏଡମିନ ପ୍ୟାନେଲ",
-        getStarted: "ଆରମ୍ଭ କରନ୍ତୁ",
+        getStarted: "ପରୀକ୍ଷା ଆରମ୍ଭ କରନ୍ତୁ",
+        urgentHelp: "ସାହାଯ୍ୟ ଦରକାର?",
+        emergency: "ଜରୁରୀ",
         cancel: "ବାତିଲ",
         close: "ବନ୍ଦ କରନ୍ତୁ",
         yesSignOut: "ହଁ, ସାଇନ ଆଉଟ କରନ୍ତୁ",
@@ -1771,6 +1847,41 @@ const resources = {
       testimonials: testimonialsOr,
       analysisPage: analysisPageOr,
       patientDashboard: patientDashboardOr,
+      emergencyPage: {
+        label: "ଦ୍ରୁତ ସହାୟତା ପହଞ୍ଚ",
+        title: "ଜରୁରୀ ସହାୟତା",
+        subtitle: "ଗୁରୁତର, ସମୟ-ସଂବେଦନଶୀଳ କିମ୍ବା ଅତ୍ୟନ୍ତ ନିଜସ୍ୱ ସ୍ୱାସ୍ଥ୍ୟ ପରିସ୍ଥିତି ପାଇଁ ଦ୍ରୁତ ପହଞ୍ଚ।",
+        priority: "ପ୍ରାଥମିକତା",
+        priorityValue: "ତୁରନ୍ତ ପ୍ରତିକ୍ରିୟା",
+        speed: "ଦ୍ରୁତ ପଥ",
+        speedBody: "ରେଡ୍ ଫ୍ଲାଗ୍ ଯାଞ୍ଚ କରନ୍ତୁ, ପରବର୍ତ୍ତୀ ପଦକ୍ଷେପ ବାଛନ୍ତୁ ଏବଂ ତୁରନ୍ତ ସେବା ପାଇଁ ସାରାଂଶ ପ୍ରସ୍ତୁତ କରନ୍ତୁ।",
+        redFlags: "ରେଡ୍ ଫ୍ଲାଗ୍",
+        redFlagsTitle: "କେବେ ତୁରନ୍ତ ପଦକ୍ଷେପ ନେବା ଦରକାର ଜାଣନ୍ତୁ",
+        nextStep: "ପରବର୍ତ୍ତୀ ପଦକ୍ଷେପ",
+        nextStepTitle: "ଦ୍ରୁତ ହୁଅନ୍ତୁ, ସ୍ପଷ୍ଟ ରୁହନ୍ତୁ",
+        nextStepBody: "ଏହି ପୃଷ୍ଠା ଜରୁରୀ ଟ୍ରାୟାଜ୍, କଲ୍ ଆକ୍ସନ୍ ଏବଂ ନିଜସ୍ୱ ତ୍ୱରିତ ସହାୟତା ପାଇଁ ପ୍ରସ୍ତୁତ। ପରବର୍ତ୍ତୀ ଅନୁଭବ ଏଠିରେ ଗଢ଼ାଯାଇପାରେ।",
+        comingSoon: "ଫିଚର ପଥ ପ୍ରସ୍ତୁତ",
+        actions: {
+          a1: {
+            title: "ଜରୁରୀ ଯାଞ୍ଚ",
+            text: "ଗୁରୁତର କିମ୍ବା ସମୟ-ସଂବେଦନଶୀଳ ଲକ୍ଷଣ ପାଇଁ ଦ୍ରୁତ ଯାଞ୍ଚ ଆରମ୍ଭ କରନ୍ତୁ।",
+          },
+          a2: {
+            title: "ସହାୟତା ପାଇଁ କଲ୍",
+            text: "ଜରୁରୀ ସେବା, ହସ୍ପିଟାଲ୍ ସହାୟତା କିମ୍ବା ଭରସାଯୋଗ୍ୟ ଯୋଗାଯୋଗକୁ ଶୀଘ୍ର ପହଞ୍ଚନ୍ତୁ।",
+          },
+          a3: {
+            title: "ଅବସ୍ଥାନ ସେୟାର କରନ୍ତୁ",
+            text: "କେୟାର ଟିମ୍ ସହ ଅବସ୍ଥାନ ଏବଂ ଛୋଟ ଲକ୍ଷଣ ସାରାଂଶ ସେୟାର ପାଇଁ ପ୍ରସ୍ତୁତ ରୁହନ୍ତୁ।",
+          },
+        },
+        flags: {
+          f1: "ଛାତିବେଦନା କିମ୍ବା ଭାରି ଚାପ",
+          f2: "ଶ୍ୱାସକ୍ଷମତା ଅସୁବିଧା କିମ୍ବା ହଠାତ୍ ଦୁର୍ବଳତା",
+          f3: "ଭୟଙ୍କର ରକ୍ତସ୍ରାବ କିମ୍ବା ଅଚେତନତା",
+          f4: "ନିଜସ୍ୱ ଅଂଗରେ ତୀବ୍ର ବ୍ୟଥା",
+        },
+      },
     },
   },
 };
@@ -1792,6 +1903,8 @@ i18n
   });
 
 export default i18n;
+
+
 
 
 

@@ -30,6 +30,7 @@ const AdminVerificationPanel = lazy(
   () => import("./pages/AdminVerificationPanel"),
 );
 const PatientAnalysisPage = lazy(() => import("./pages/PatientAnalysisPage"));
+const EmergencyPage = lazy(() => import("./pages/EmergencyPage"));
 
 const DoctorSignup = lazy(() => import("./components/DoctorSignup"));
 const DoctorVerification = lazy(
@@ -72,10 +73,12 @@ function RouteLoader() {
 function ProtectedRole({ session, role, children }) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== role) {
-    if (session.role === "doctor")
+    if (session.role === "doctor") {
       return <Navigate to="/doctor/verification" replace />;
-    if (session.role === "admin")
+    }
+    if (session.role === "admin") {
       return <Navigate to="/admin/verification" replace />;
+    }
     return <Navigate to="/dashboard/patient" replace />;
   }
   return children;
@@ -88,8 +91,9 @@ function ProtectedDoctorDashboard({
 }) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== "doctor") {
-    if (session.role === "admin")
+    if (session.role === "admin") {
       return <Navigate to="/admin/verification" replace />;
+    }
     return <Navigate to="/dashboard/patient" replace />;
   }
   if (doctorVerificationStatus !== "verified") {
@@ -105,8 +109,9 @@ function ProtectedDoctorVerification({
 }) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== "doctor") {
-    if (session.role === "admin")
+    if (session.role === "admin") {
       return <Navigate to="/admin/verification" replace />;
+    }
     return <Navigate to="/dashboard/patient" replace />;
   }
   if (doctorVerificationStatus === "verified") {
@@ -118,10 +123,12 @@ function ProtectedDoctorVerification({
 function ProtectedAdmin({ session, children }) {
   if (!session?.email) return <Navigate to="/" replace />;
   if (session.role !== "admin") {
-    if (session.role === "doctor")
+    if (session.role === "doctor") {
       return <Navigate to="/doctor/verification" replace />;
-    if (session.role === "patient")
+    }
+    if (session.role === "patient") {
       return <Navigate to="/dashboard/patient" replace />;
+    }
     return <Navigate to="/" replace />;
   }
   return children;
@@ -133,6 +140,7 @@ function LandingPage({
   onOpenLogin,
   onOpenSignup,
   onGetStarted,
+  onOpenEmergency,
 }) {
   return (
     <>
@@ -143,6 +151,7 @@ function LandingPage({
           onOpenLogin={onOpenLogin}
           onOpenSignup={onOpenSignup}
           onGetStarted={onGetStarted}
+          onOpenEmergency={onOpenEmergency}
         />
       </section>
       <Suspense fallback={<RouteLoader />}>
@@ -268,6 +277,10 @@ function AppInner() {
     navigate("/analysis");
   };
 
+  const goToEmergency = () => {
+    navigate("/emergency");
+  };
+
   return (
     <>
       <Navbar
@@ -277,6 +290,7 @@ function AppInner() {
         onOpenLogin={openLogin}
         onOpenSignup={openSignup}
         onGetStarted={goToGetStarted}
+        onOpenEmergency={goToEmergency}
       />
 
       <main className={isHome ? "" : "pt-22 sm:pt-24"}>
@@ -291,9 +305,12 @@ function AppInner() {
                   onOpenLogin={openLogin}
                   onOpenSignup={openSignup}
                   onGetStarted={goToGetStarted}
+                  onOpenEmergency={goToEmergency}
                 />
               }
             />
+
+            <Route path="/emergency" element={<EmergencyPage session={session} />} />
 
             <Route
               path="/login"
@@ -425,3 +442,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
