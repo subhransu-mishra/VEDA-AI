@@ -33,6 +33,17 @@ const caseSchema = new mongoose.Schema(
       default: "created",
       index: true,
     },
+    situationLevel: {
+      type: String,
+      enum: ["normal", "medium", "emergency"],
+      default: "normal",
+      index: true,
+    },
+    isEmergencyCase: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true },
 );

@@ -107,6 +107,11 @@ OUTPUT FORMAT (STRICT JSON)
     "why": "",
     "red_flags": [""]
   },
+  "triage_signal": {
+    "patient_reported_situation": "normal|medium|emergency",
+    "is_emergency_case": false,
+    "reason": ""
+  },
   "summary": "",
   "confidence_score": 0,
   "disclaimer": ""
@@ -118,6 +123,7 @@ IMPORTANT NOTES
 - "primary_specialist" must be a single string from the allowed list.
 - "specialists_to_consult" can contain multiple human-readable names.
 - "confidence_score" should be between 0 and 1.
+- Set "triage_signal.is_emergency_case" to true when risk is high/critical or patient_reported_situation is emergency.
 `;
 
 // ─── Safe JSON Parser ─────────────────────────────────────────────────────────
@@ -142,6 +148,16 @@ const normalizeField = (val) => {
   if (Array.isArray(val)) return val.join(", ") || "None";
   const str = String(val).trim();
   return str || "None";
+};
+
+const normalizeSituationLevel = (value) => {
+  const normalized = String(value || "normal")
+    .trim()
+    .toLowerCase();
+  if (["normal", "medium", "emergency"].includes(normalized)) {
+    return normalized;
+  }
+  return "normal";
 };
 
 const normalizeStringArray = (value, fallback = []) => {
@@ -252,6 +268,15 @@ const normalizeAnalysis = (raw) => {
     String(raw?.disclaimer || "").trim() ||
     "This AI report is informational only and not a final medical diagnosis.";
 
+  const patientReportedSituation = normalizeSituationLevel(
+    raw?.triage_signal?.patient_reported_situation,
+  );
+
+  const triageEmergencyFlag = Boolean(raw?.triage_signal?.is_emergency_case);
+
+  const isEmergencyCase =
+    triageEmergencyFlag || ["high", "critical"].includes(emergencyLevel);
+
   return {
     conditionAnalysis: {
       possibleConditions,
@@ -275,6 +300,8 @@ const normalizeAnalysis = (raw) => {
     disclaimer,
     recommendedSpecialist: specialistsToConsult[0] || "General Physician",
     urgency: emergencyLevel,
+    patientReportedSituation,
+    isEmergencyCase,
   };
 };
 
@@ -297,6 +324,7 @@ export const analyzeCase = async (req, res) => {
       additionalNotes,
       age,
       gender,
+      situationLevel,
     } = req.body;
 
     // ── Input validation ───────────────────────────────────────────────────────
@@ -373,6 +401,7 @@ export const analyzeCase = async (req, res) => {
       gender: normalizeField(gender || req.patient?.gender),
       symptoms: symptomsStr,
       symptomDuration: String(symptomDuration).trim(),
+      patientReportedSituation: normalizeSituationLevel(situationLevel),
       existingConditions: normalizeField(existingConditions),
       medications: normalizeField(medications),
       allergies: normalizeField(allergies),
@@ -383,6 +412,8 @@ export const analyzeCase = async (req, res) => {
         mimeType: f.mimetype,
       })),
     };
+
+    const normalizedSituationLevel = normalizeSituationLevel(situationLevel);
 
     const prompt = buildMedicalPrompt({
       patientProfile,
@@ -405,6 +436,10 @@ export const analyzeCase = async (req, res) => {
       });
     }
 
+    analysis.patientReportedSituation =
+      analysis.patientReportedSituation || normalizedSituationLevel;
+    analysis.isEmergencyCase = Boolean(analysis.isEmergencyCase);
+
     // ── Step 5: Return the structured analysis ─────────────────────────────────
     const caseId = await generateUniqueCaseId();
 
@@ -413,6 +448,8 @@ export const analyzeCase = async (req, res) => {
       patientId: req.patient._id,
       aiAnalysis: analysis,
       status: "ai_completed",
+      situationLevel: normalizedSituationLevel,
+      isEmergencyCase: Boolean(analysis?.isEmergencyCase),
     });
 
     return res.status(200).json({
@@ -420,6 +457,8 @@ export const analyzeCase = async (req, res) => {
         _id: createdCase._id,
         caseId: createdCase.caseId,
         status: createdCase.status,
+        situationLevel: createdCase.situationLevel,
+        isEmergencyCase: createdCase.isEmergencyCase,
       },
       analysis,
       intake,

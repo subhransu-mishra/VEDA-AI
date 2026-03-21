@@ -247,7 +247,7 @@ export default function DoctorCaseFormPage({ session }) {
 
             <label className="block">
               <span className="mb-1 block text-sm font-semibold text-slate-800">
-                Severity of case
+                Severity of pain
               </span>
               <select
                 value={form.severity}

@@ -54,7 +54,9 @@ const canUseStorage = () =>
 const readLocal = (key, fallback = []) => {
   if (!canUseStorage()) return fallback;
   try {
-    const val = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+    const val = JSON.parse(
+      localStorage.getItem(key) || JSON.stringify(fallback),
+    );
     return Array.isArray(val) ? val : fallback;
   } catch {
     return fallback;
@@ -121,10 +123,7 @@ function analyzeDocumentMock({ fileName, extractedText, tr }) {
     {
       key: "diabetes",
       keywords: ["glucose", "hba1c", "sugar", "insulin", "diabetic"],
-      doctor: tr(
-        "patientDashboard.doctors.endocrinologist",
-        "Endocrinologist",
-      ),
+      doctor: tr("patientDashboard.doctors.endocrinologist", "Endocrinologist"),
       simple: tr(
         "patientDashboard.doc.findingDiabetes",
         "Sugar-related values look important. Diabetes review is recommended.",
@@ -133,10 +132,7 @@ function analyzeDocumentMock({ fileName, extractedText, tr }) {
     {
       key: "thyroid",
       keywords: ["thyroid", "tsh", "t3", "t4"],
-      doctor: tr(
-        "patientDashboard.doctors.endocrinologist",
-        "Endocrinologist",
-      ),
+      doctor: tr("patientDashboard.doctors.endocrinologist", "Endocrinologist"),
       simple: tr(
         "patientDashboard.doc.findingThyroid",
         "Thyroid markers may need a specialist check.",
@@ -200,7 +196,10 @@ function analyzeDocumentMock({ fileName, extractedText, tr }) {
 
   const confidence = Math.min(
     95,
-    Math.max(55, 55 + matched.length * 10 + Math.min(extractedText.length / 80, 15)),
+    Math.max(
+      55,
+      55 + matched.length * 10 + Math.min(extractedText.length / 80, 15),
+    ),
   );
 
   const findings =
@@ -226,12 +225,11 @@ function analyzeDocumentMock({ fileName, extractedText, tr }) {
       ? [...new Set(matched.map((m) => m.doctor))]
       : [tr("patientDashboard.doctors.generalPhysician", "General Physician")];
 
-  const severity =
-    matched.some((m) => m.key === "cardio" || m.key === "kidney")
+  const severity = matched.some((m) => m.key === "cardio" || m.key === "kidney")
+    ? "moderate"
+    : matched.length >= 3
       ? "moderate"
-      : matched.length >= 3
-        ? "moderate"
-        : "low";
+      : "low";
 
   const nextSteps = [
     tr(
@@ -317,15 +315,31 @@ export default function PatientDashboard({ session, onLogout }) {
     mood: "Balanced",
   });
   const [trackerLogs, setTrackerLogs] = useState([
-    { id: "t1", date: "Today", water: 6, steps: 4200, sleep: 6.7, mood: "Balanced" },
-    { id: "t2", date: "Yesterday", water: 7, steps: 5100, sleep: 7.1, mood: "Good" },
+    {
+      id: "t1",
+      date: "Today",
+      water: 6,
+      steps: 4200,
+      sleep: 6.7,
+      mood: "Balanced",
+    },
+    {
+      id: "t2",
+      date: "Yesterday",
+      water: 7,
+      steps: 5100,
+      sleep: 7.1,
+      mood: "Good",
+    },
   ]);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [docAnalyzing, setDocAnalyzing] = useState(false);
   const [docError, setDocError] = useState("");
   const [docResult, setDocResult] = useState(null);
-  const [docHistory, setDocHistory] = useState(() => readLocal(DOC_HISTORY_KEY, []));
+  const [docHistory, setDocHistory] = useState(() =>
+    readLocal(DOC_HISTORY_KEY, []),
+  );
 
   const notificationsRef = useRef(null);
   const profileRef = useRef(null);
@@ -364,7 +378,11 @@ export default function PatientDashboard({ session, onLogout }) {
 
   const menuItems = useMemo(
     () => [
-      { id: "Home", label: tr("patientDashboard.menu.home", "Home"), icon: Home },
+      {
+        id: "Home",
+        label: tr("patientDashboard.menu.home", "Home"),
+        icon: Home,
+      },
       {
         id: "Overview",
         label: tr("patientDashboard.menu.overview", "Overview"),
@@ -429,7 +447,12 @@ export default function PatientDashboard({ session, onLogout }) {
     [t],
   );
 
-  const categoryOptions = ["All", "Mental Wellness", "Cardio Care", "Diet & Recovery"];
+  const categoryOptions = [
+    "All",
+    "Mental Wellness",
+    "Cardio Care",
+    "Diet & Recovery",
+  ];
 
   const unreadCount = useMemo(
     () => reports.filter((r) => !r.isRead).length,
@@ -450,7 +473,8 @@ export default function PatientDashboard({ session, onLogout }) {
   const resourceFiltered = useMemo(() => {
     const q = (resourceQuery || query).trim().toLowerCase();
     return mockResources.filter((r) => {
-      const catMatch = resourceCategory === "All" || r.category === resourceCategory;
+      const catMatch =
+        resourceCategory === "All" || r.category === resourceCategory;
       const qMatch =
         !q ||
         r.title.toLowerCase().includes(q) ||
@@ -464,7 +488,8 @@ export default function PatientDashboard({ session, onLogout }) {
     const waterScore = Math.min((tracker.water / 8) * 25, 25);
     const stepScore = Math.min((tracker.steps / 7000) * 35, 35);
     const sleepScore = Math.min((tracker.sleep / 8) * 30, 30);
-    const moodScore = tracker.mood === "Good" ? 10 : tracker.mood === "Balanced" ? 7 : 4;
+    const moodScore =
+      tracker.mood === "Good" ? 10 : tracker.mood === "Balanced" ? 7 : 4;
     return Math.round(waterScore + stepScore + sleepScore + moodScore);
   }, [tracker]);
 
@@ -511,13 +536,15 @@ export default function PatientDashboard({ session, onLogout }) {
 
   const translateRelativeDate = (date) => {
     if (date === "Today") return tr("patientDashboard.today", "Today");
-    if (date === "Yesterday") return tr("patientDashboard.yesterday", "Yesterday");
+    if (date === "Yesterday")
+      return tr("patientDashboard.yesterday", "Yesterday");
     return date;
   };
 
   const translateMood = (mood) => {
     if (mood === "Good") return tr("patientDashboard.mood.good", "Good");
-    if (mood === "Balanced") return tr("patientDashboard.mood.balanced", "Balanced");
+    if (mood === "Balanced")
+      return tr("patientDashboard.mood.balanced", "Balanced");
     if (mood === "Low") return tr("patientDashboard.mood.low", "Low");
     return mood;
   };
@@ -537,9 +564,12 @@ export default function PatientDashboard({ session, onLogout }) {
   };
 
   const translateResourceType = (type) => {
-    if (type === "Article") return tr("patientDashboard.resources.article", "Article");
-    if (type === "Guide") return tr("patientDashboard.resources.guide", "Guide");
-    if (type === "Video") return tr("patientDashboard.resources.video", "Video");
+    if (type === "Article")
+      return tr("patientDashboard.resources.article", "Article");
+    if (type === "Guide")
+      return tr("patientDashboard.resources.guide", "Guide");
+    if (type === "Video")
+      return tr("patientDashboard.resources.video", "Video");
     return type;
   };
 
@@ -582,7 +612,10 @@ export default function PatientDashboard({ session, onLogout }) {
 
   useEffect(() => {
     const onOutside = (e) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(e.target)
+      ) {
         setShowNotifications(false);
       }
       if (profileRef.current && !profileRef.current.contains(e.target)) {
@@ -676,7 +709,9 @@ export default function PatientDashboard({ session, onLogout }) {
   };
 
   const updateAppointmentStatus = (id, status) => {
-    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status } : a)),
+    );
   };
 
   const saveTracker = () => {
@@ -777,7 +812,11 @@ export default function PatientDashboard({ session, onLogout }) {
               key={item.id}
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.35, delay: index * 0.04, ease: easeSmooth }}
+              transition={{
+                duration: 0.35,
+                delay: index * 0.04,
+                ease: easeSmooth,
+              }}
               onClick={() => handleMenuClick(item.id)}
               className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                 activeTab === item.id
@@ -937,12 +976,18 @@ export default function PatientDashboard({ session, onLogout }) {
           </button>
         </div>
 
-        <section ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto p-4 sm:p-6">
+        <section
+          ref={scrollRef}
+          className="relative z-10 flex-1 overflow-y-auto p-4 sm:p-6"
+        >
           {activeTab === "Overview" && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <MetricCard
-                  title={tr("patientDashboard.overview.healthScore", "Health Score")}
+                  title={tr(
+                    "patientDashboard.overview.healthScore",
+                    "Health Score",
+                  )}
                   value={`${healthScore}/100`}
                   subtitle={tr(
                     "patientDashboard.overview.personalizedTrend",
@@ -951,7 +996,10 @@ export default function PatientDashboard({ session, onLogout }) {
                   index={0}
                 />
                 <MetricCard
-                  title={tr("patientDashboard.overview.aiHealthCheck", "AI Health Check")}
+                  title={tr(
+                    "patientDashboard.overview.aiHealthCheck",
+                    "AI Health Check",
+                  )}
                   value="2 alerts"
                   subtitle={tr(
                     "patientDashboard.overview.needsFollowUp",
@@ -962,14 +1010,24 @@ export default function PatientDashboard({ session, onLogout }) {
                 <MetricCard
                   title={tr("patientDashboard.overview.reports", "Reports")}
                   value={String(reports.length)}
-                  subtitle={tr("patientDashboard.overview.unread", "{{count}} unread", {
-                    count: unreadCount,
-                  })}
+                  subtitle={tr(
+                    "patientDashboard.overview.unread",
+                    "{{count}} unread",
+                    {
+                      count: unreadCount,
+                    },
+                  )}
                   index={2}
                 />
                 <MetricCard
-                  title={tr("patientDashboard.overview.nextVisit", "Next Visit")}
-                  value={tr("patientDashboard.appointments.tomorrow", "Tomorrow")}
+                  title={tr(
+                    "patientDashboard.overview.nextVisit",
+                    "Next Visit",
+                  )}
+                  value={tr(
+                    "patientDashboard.appointments.tomorrow",
+                    "Tomorrow",
+                  )}
                   subtitle="10:30 AM"
                   index={3}
                 />
@@ -977,9 +1035,12 @@ export default function PatientDashboard({ session, onLogout }) {
 
               <div className="grid gap-3 lg:grid-cols-3">
                 <OverviewCard
-                  title={tr("patientDashboard.overview.appointments", "Appointments")}
+                  title={tr(
+                    "patientDashboard.overview.appointments",
+                    "Appointments",
+                  )}
                   lines={[
-                    `${appointments[0]?.doctor || "Dr."} • ${translateAppointmentDepartment(appointments[0]?.department || "General")}`,
+                    `${appointments[0]?.doctor || "Dr."} ï¿½ ${translateAppointmentDepartment(appointments[0]?.department || "General")}`,
                     `${translateAppointmentDate(appointments[0]?.date || tr("patientDashboard.overview.soon", "Soon"))}, ${appointments[0]?.time || ""}`,
                   ]}
                   action={tr(
@@ -994,21 +1055,43 @@ export default function PatientDashboard({ session, onLogout }) {
                     "Medication Reminders",
                   )}
                   lines={[
-                    tr("patientDashboard.overview.med1", "08:00 AM • BP tablet"),
-                    tr("patientDashboard.overview.med2", "02:00 PM • Vitamin D"),
-                    tr("patientDashboard.overview.med3", "09:00 PM • Sleep dose"),
+                    tr(
+                      "patientDashboard.overview.med1",
+                      "08:00 AM ï¿½ BP tablet",
+                    ),
+                    tr(
+                      "patientDashboard.overview.med2",
+                      "02:00 PM ï¿½ Vitamin D",
+                    ),
+                    tr(
+                      "patientDashboard.overview.med3",
+                      "09:00 PM ï¿½ Sleep dose",
+                    ),
                   ]}
                 />
                 <OverviewCard
-                  title={tr("patientDashboard.overview.recentReports", "Recent Reports")}
+                  title={tr(
+                    "patientDashboard.overview.recentReports",
+                    "Recent Reports",
+                  )}
                   lines={[
                     reports[0]
-                      ? tr("patientDashboard.overview.latestCase", "Latest: Case {{caseId}}", {
-                          caseId: reports[0].caseId,
-                        })
-                      : tr("patientDashboard.overview.noReportYet", "No report yet"),
+                      ? tr(
+                          "patientDashboard.overview.latestCase",
+                          "Latest: Case {{caseId}}",
+                          {
+                            caseId: reports[0].caseId,
+                          },
+                        )
+                      : tr(
+                          "patientDashboard.overview.noReportYet",
+                          "No report yet",
+                        ),
                   ]}
-                  action={tr("patientDashboard.overview.openReports", "Open reports")}
+                  action={tr(
+                    "patientDashboard.overview.openReports",
+                    "Open reports",
+                  )}
                   onAction={() => setActiveTab("Health Reports")}
                 />
               </div>
@@ -1017,11 +1100,18 @@ export default function PatientDashboard({ session, onLogout }) {
 
           {activeTab === "Symptom Checker" && (
             <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-              <SectionCard title={tr("patientDashboard.symptoms.logSymptoms", "Log Symptoms")}>
+              <SectionCard
+                title={tr(
+                  "patientDashboard.symptoms.logSymptoms",
+                  "Log Symptoms",
+                )}
+              >
                 <div className="mt-3 space-y-3">
                   <input
                     value={symptomForm.symptom}
-                    onChange={(e) => setSymptomForm((p) => ({ ...p, symptom: e.target.value }))}
+                    onChange={(e) =>
+                      setSymptomForm((p) => ({ ...p, symptom: e.target.value }))
+                    }
                     placeholder={tr(
                       "patientDashboard.symptoms.enterPrimarySymptom",
                       "Enter primary symptom",
@@ -1032,7 +1122,12 @@ export default function PatientDashboard({ session, onLogout }) {
                   <div className="grid grid-cols-2 gap-2">
                     <select
                       value={symptomForm.duration}
-                      onChange={(e) => setSymptomForm((p) => ({ ...p, duration: e.target.value }))}
+                      onChange={(e) =>
+                        setSymptomForm((p) => ({
+                          ...p,
+                          duration: e.target.value,
+                        }))
+                      }
                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                     >
                       {durationOptions.map((option) => (
@@ -1041,7 +1136,13 @@ export default function PatientDashboard({ session, onLogout }) {
                     </select>
 
                     <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                      {tr("patientDashboard.symptoms.severity", "Severity")} <span className="font-semibold">{symptomForm.severity}/10</span>
+                      {tr(
+                        "patientDashboard.symptoms.severity",
+                        "Severity of pain",
+                      )}{" "}
+                      <span className="font-semibold">
+                        {symptomForm.severity}/10
+                      </span>
                     </label>
                   </div>
 
@@ -1050,13 +1151,20 @@ export default function PatientDashboard({ session, onLogout }) {
                     min="1"
                     max="10"
                     value={symptomForm.severity}
-                    onChange={(e) => setSymptomForm((p) => ({ ...p, severity: Number(e.target.value) }))}
+                    onChange={(e) =>
+                      setSymptomForm((p) => ({
+                        ...p,
+                        severity: Number(e.target.value),
+                      }))
+                    }
                     className="w-full"
                   />
 
                   <textarea
                     value={symptomForm.notes}
-                    onChange={(e) => setSymptomForm((p) => ({ ...p, notes: e.target.value }))}
+                    onChange={(e) =>
+                      setSymptomForm((p) => ({ ...p, notes: e.target.value }))
+                    }
                     placeholder={tr(
                       "patientDashboard.symptoms.additionalContext",
                       "Additional context (optional)",
@@ -1068,7 +1176,12 @@ export default function PatientDashboard({ session, onLogout }) {
                     <input
                       type="checkbox"
                       checked={symptomForm.isPrivate}
-                      onChange={(e) => setSymptomForm((p) => ({ ...p, isPrivate: e.target.checked }))}
+                      onChange={(e) =>
+                        setSymptomForm((p) => ({
+                          ...p,
+                          isPrivate: e.target.checked,
+                        }))
+                      }
                     />
                     {tr(
                       "patientDashboard.symptoms.markSensitive",
@@ -1111,15 +1224,27 @@ export default function PatientDashboard({ session, onLogout }) {
                     </p>
                   ) : (
                     symptomEntries.map((s) => (
-                      <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <div
+                        key={s.id}
+                        className="rounded-xl border border-slate-200 bg-white p-3"
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">{s.symptom}</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {s.symptom}
+                            </p>
                             <p className="text-xs text-slate-500">
-                              {durationOptions.find((d) => d.value === s.duration)?.label || s.duration} • {" "}
-                              {tr("patientDashboard.symptoms.severity", "Severity")} {s.severity}/10 {" "}
+                              {durationOptions.find(
+                                (d) => d.value === s.duration,
+                              )?.label || s.duration}{" "}
+                              ï¿½{" "}
+                              {tr(
+                                "patientDashboard.symptoms.severity",
+                                "Severity",
+                              )}{" "}
+                              {s.severity}/10{" "}
                               {s.isPrivate
-                                ? `• ${tr("patientDashboard.symptoms.private", "Private")}`
+                                ? `ï¿½ ${tr("patientDashboard.symptoms.private", "Private")}`
                                 : ""}
                             </p>
                           </div>
@@ -1130,7 +1255,11 @@ export default function PatientDashboard({ session, onLogout }) {
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        {s.notes ? <p className="mt-2 text-sm text-slate-600">{s.notes}</p> : null}
+                        {s.notes ? (
+                          <p className="mt-2 text-sm text-slate-600">
+                            {s.notes}
+                          </p>
+                        ) : null}
                       </div>
                     ))
                   )}
@@ -1142,10 +1271,7 @@ export default function PatientDashboard({ session, onLogout }) {
           {activeTab === "Document Checker" && (
             <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
               <SectionCard
-                title={tr(
-                  "patientDashboard.doc.title",
-                  "AI Document Checker",
-                )}
+                title={tr("patientDashboard.doc.title", "AI Document Checker")}
               >
                 <p className="text-sm text-slate-600">
                   {tr(
@@ -1163,18 +1289,23 @@ export default function PatientDashboard({ session, onLogout }) {
                 <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4">
                   <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
                     <Upload size={14} />
-                    {tr("patientDashboard.doc.uploadDocument", "Upload Document")}
+                    {tr(
+                      "patientDashboard.doc.uploadDocument",
+                      "Upload Document",
+                    )}
                     <input
                       type="file"
                       accept=".txt,.csv,.md,.pdf,.doc,.docx,.jpg,.jpeg,.png"
                       className="hidden"
-                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      onChange={(e) =>
+                        setSelectedFile(e.target.files?.[0] || null)
+                      }
                     />
                   </label>
 
                   {selectedFile ? (
                     <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {tr("patientDashboard.doc.selected", "Selected")}: {" "}
+                      {tr("patientDashboard.doc.selected", "Selected")}:{" "}
                       <span className="font-semibold">{selectedFile.name}</span>
                     </div>
                   ) : null}
@@ -1193,14 +1324,20 @@ export default function PatientDashboard({ session, onLogout }) {
                     <Sparkles size={14} />
                     {docAnalyzing
                       ? tr("patientDashboard.doc.analyzing", "Analyzing...")
-                      : tr("patientDashboard.doc.analyzeWithAi", "Analyze with AI")}
+                      : tr(
+                          "patientDashboard.doc.analyzeWithAi",
+                          "Analyze with AI",
+                        )}
                   </button>
                 </div>
 
                 {docHistory.length ? (
                   <div className="mt-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                      {tr("patientDashboard.doc.recentAnalyses", "Recent Analyses")}
+                      {tr(
+                        "patientDashboard.doc.recentAnalyses",
+                        "Recent Analyses",
+                      )}
                     </p>
                     <div className="mt-2 space-y-2">
                       {docHistory.slice(0, 4).map((h) => (
@@ -1211,8 +1348,11 @@ export default function PatientDashboard({ session, onLogout }) {
                         >
                           <p className="font-semibold">{h.fileName}</p>
                           <p className="text-xs text-slate-500">
-                            {new Date(h.analyzedAt).toLocaleString()} • {" "}
-                            {tr("patientDashboard.doc.confidence", "Confidence")} {" "}
+                            {new Date(h.analyzedAt).toLocaleString()} ï¿½{" "}
+                            {tr(
+                              "patientDashboard.doc.confidence",
+                              "Confidence",
+                            )}{" "}
                             {h.confidence}%
                           </p>
                         </button>
@@ -1238,19 +1378,26 @@ export default function PatientDashboard({ session, onLogout }) {
                 ) : (
                   <div className="space-y-3">
                     <div className="rounded-xl border border-slate-200 bg-white p-3">
-                      <p className="text-sm font-semibold text-slate-900">{docResult.fileName}</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {docResult.fileName}
+                      </p>
                       <p className="text-xs text-slate-500">
-                        {new Date(docResult.analyzedAt).toLocaleString()} • {" "}
-                        {tr("patientDashboard.doc.confidence", "Confidence")} {" "}
+                        {new Date(docResult.analyzedAt).toLocaleString()} ï¿½{" "}
+                        {tr("patientDashboard.doc.confidence", "Confidence")}{" "}
                         {docResult.confidence}%
                       </p>
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-white p-3">
                       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                        {tr("patientDashboard.doc.simpleSummary", "Simple Summary")}
+                        {tr(
+                          "patientDashboard.doc.simpleSummary",
+                          "Simple Summary",
+                        )}
                       </p>
-                      <p className="mt-1 text-sm text-slate-700">{docResult.summary}</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        {docResult.summary}
+                      </p>
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -1260,7 +1407,10 @@ export default function PatientDashboard({ session, onLogout }) {
                       <ul className="mt-2 space-y-1 text-sm text-slate-700">
                         {docResult.findings.map((f) => (
                           <li key={f} className="flex items-start gap-2">
-                            <CheckCircle2 size={14} className="mt-0.5 text-emerald-600" />
+                            <CheckCircle2
+                              size={14}
+                              className="mt-0.5 text-emerald-600"
+                            />
                             <span>{f}</span>
                           </li>
                         ))}
@@ -1294,7 +1444,10 @@ export default function PatientDashboard({ session, onLogout }) {
                       <ul className="mt-2 space-y-1 text-sm text-slate-700">
                         {docResult.nextSteps.map((s) => (
                           <li key={s} className="flex items-start gap-2">
-                            <ArrowUpRight size={13} className="mt-0.5 text-slate-500" />
+                            <ArrowUpRight
+                              size={13}
+                              className="mt-0.5 text-slate-500"
+                            />
                             <span>{s}</span>
                           </li>
                         ))}
@@ -1328,7 +1481,9 @@ export default function PatientDashboard({ session, onLogout }) {
 
           {activeTab === "Health Reports" && (
             <div className="space-y-4">
-              <SectionCard title={tr("patientDashboard.reports.title", "Doctor Reports")}>
+              <SectionCard
+                title={tr("patientDashboard.reports.title", "Doctor Reports")}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm text-slate-700">
                     {tr(
@@ -1358,13 +1513,20 @@ export default function PatientDashboard({ session, onLogout }) {
               </SectionCard>
 
               {loadingReports ? (
-                <SectionCard title={tr("patientDashboard.reports.status", "Status")}>
+                <SectionCard
+                  title={tr("patientDashboard.reports.status", "Status")}
+                >
                   <p className="text-sm text-slate-500">
-                    {tr("patientDashboard.reports.loadingReports", "Loading reports...")}
+                    {tr(
+                      "patientDashboard.reports.loadingReports",
+                      "Loading reports...",
+                    )}
                   </p>
                 </SectionCard>
               ) : !reportFiltered.length ? (
-                <SectionCard title={tr("patientDashboard.reports.status", "Status")}>
+                <SectionCard
+                  title={tr("patientDashboard.reports.status", "Status")}
+                >
                   <p className="text-sm text-slate-500">
                     {tr(
                       "patientDashboard.reports.noReportsYet",
@@ -1386,11 +1548,13 @@ export default function PatientDashboard({ session, onLogout }) {
                       <div className="mb-2 flex items-start justify-between">
                         <div>
                           <p className="font-semibold text-slate-900">
-                            {tr("patientDashboard.reports.case", "Case")} {r.caseId}
+                            {tr("patientDashboard.reports.case", "Case")}{" "}
+                            {r.caseId}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {tr("patientDashboard.reports.byDr", "By Dr.")} {" "}
-                            {r.doctorName || tr("patientDashboard.reports.doctor", "Doctor")}
+                            {tr("patientDashboard.reports.byDr", "By Dr.")}{" "}
+                            {r.doctorName ||
+                              tr("patientDashboard.reports.doctor", "Doctor")}
                           </p>
                         </div>
                         {!r.isRead ? (
@@ -1407,7 +1571,9 @@ export default function PatientDashboard({ session, onLogout }) {
                       <p className="text-xs text-slate-400">
                         {new Date(r.createdAt).toLocaleString()}
                       </p>
-                      <p className="mt-3 line-clamp-3 text-sm text-slate-600">{r.report}</p>
+                      <p className="mt-3 line-clamp-3 text-sm text-slate-600">
+                        {r.report}
+                      </p>
 
                       <div className="mt-4 flex gap-2">
                         <button
@@ -1444,13 +1610,14 @@ export default function PatientDashboard({ session, onLogout }) {
                   className="rounded-2xl border border-white/70 bg-white/85 p-4 backdrop-blur-xl"
                 >
                   <p className="text-sm font-semibold text-slate-900">
-                    {a.doctor} • {translateAppointmentDepartment(a.department)}
+                    {a.doctor} ï¿½ {translateAppointmentDepartment(a.department)}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {translateAppointmentDate(a.date)}, {a.time} • {translateMode(a.mode)}
+                    {translateAppointmentDate(a.date)}, {a.time} ï¿½{" "}
+                    {translateMode(a.mode)}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {tr("patientDashboard.appointments.status", "Status")}: {" "}
+                    {tr("patientDashboard.appointments.status", "Status")}:{" "}
                     <span className="font-semibold">
                       {translateAppointmentStatus(a.status)}
                     </span>
@@ -1474,7 +1641,9 @@ export default function PatientDashboard({ session, onLogout }) {
                       {tr("patientDashboard.appointments.confirm", "Confirm")}
                     </button>
                     <button
-                      onClick={() => updateAppointmentStatus(a.id, "rescheduled")}
+                      onClick={() =>
+                        updateAppointmentStatus(a.id, "rescheduled")
+                      }
                       className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700"
                     >
                       <Clock3 size={13} />
@@ -1540,11 +1709,14 @@ export default function PatientDashboard({ session, onLogout }) {
                       {translateResourceTitle(r)}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {translateResourceType(r.type)} • {r.duration} • {" "}
+                      {translateResourceType(r.type)} ï¿½ {r.duration} ï¿½{" "}
                       {translateResourceCategory(r.category)}
                     </p>
                     <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
-                      {tr("patientDashboard.resources.openResource", "Open resource")}{" "}
+                      {tr(
+                        "patientDashboard.resources.openResource",
+                        "Open resource",
+                      )}{" "}
                       <ArrowUpRight size={12} />
                     </p>
                   </motion.a>
@@ -1556,7 +1728,10 @@ export default function PatientDashboard({ session, onLogout }) {
           {activeTab === "Health Tracker" && (
             <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
               <SectionCard
-                title={tr("patientDashboard.tracker.dailyTracker", "Daily Tracker")}
+                title={tr(
+                  "patientDashboard.tracker.dailyTracker",
+                  "Daily Tracker",
+                )}
               >
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <TrackerInput
@@ -1566,13 +1741,17 @@ export default function PatientDashboard({ session, onLogout }) {
                       "Water (glasses)",
                     )}
                     value={tracker.water}
-                    onChange={(v) => setTracker((p) => ({ ...p, water: Number(v) }))}
+                    onChange={(v) =>
+                      setTracker((p) => ({ ...p, water: Number(v) }))
+                    }
                   />
                   <TrackerInput
                     icon={Footprints}
                     label={tr("patientDashboard.tracker.steps", "Steps")}
                     value={tracker.steps}
-                    onChange={(v) => setTracker((p) => ({ ...p, steps: Number(v) }))}
+                    onChange={(v) =>
+                      setTracker((p) => ({ ...p, steps: Number(v) }))
+                    }
                   />
                   <TrackerInput
                     icon={Moon}
@@ -1582,7 +1761,9 @@ export default function PatientDashboard({ session, onLogout }) {
                     )}
                     value={tracker.sleep}
                     step="0.1"
-                    onChange={(v) => setTracker((p) => ({ ...p, sleep: Number(v) }))}
+                    onChange={(v) =>
+                      setTracker((p) => ({ ...p, sleep: Number(v) }))
+                    }
                   />
                   <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                     <p className="text-xs text-slate-500">
@@ -1590,7 +1771,9 @@ export default function PatientDashboard({ session, onLogout }) {
                     </p>
                     <select
                       value={tracker.mood}
-                      onChange={(e) => setTracker((p) => ({ ...p, mood: e.target.value }))}
+                      onChange={(e) =>
+                        setTracker((p) => ({ ...p, mood: e.target.value }))
+                      }
                       className="mt-1 w-full bg-transparent text-sm outline-none"
                     >
                       <option>Good</option>
@@ -1606,7 +1789,7 @@ export default function PatientDashboard({ session, onLogout }) {
                 >
                   {tr(
                     "patientDashboard.tracker.saveTodayLog",
-                    "Save Today’s Log",
+                    "Save Todayï¿½s Log",
                   )}
                 </button>
               </SectionCard>
@@ -1616,13 +1799,21 @@ export default function PatientDashboard({ session, onLogout }) {
               >
                 <div className="mt-3 space-y-2">
                   {trackerLogs.map((log) => (
-                    <div key={log.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                      <p className="font-semibold">{translateRelativeDate(log.date)}</p>
+                    <div
+                      key={log.id}
+                      className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700"
+                    >
+                      <p className="font-semibold">
+                        {translateRelativeDate(log.date)}
+                      </p>
                       <p className="text-xs text-slate-500">
-                        {tr("patientDashboard.tracker.water", "Water")} {log.water} • {" "}
-                        {tr("patientDashboard.tracker.steps", "Steps")} {log.steps} • {" "}
-                        {tr("patientDashboard.tracker.sleep", "Sleep")} {log.sleep}h • {" "}
-                        {tr("patientDashboard.tracker.mood", "Mood")} {" "}
+                        {tr("patientDashboard.tracker.water", "Water")}{" "}
+                        {log.water} ï¿½{" "}
+                        {tr("patientDashboard.tracker.steps", "Steps")}{" "}
+                        {log.steps} ï¿½{" "}
+                        {tr("patientDashboard.tracker.sleep", "Sleep")}{" "}
+                        {log.sleep}h ï¿½{" "}
+                        {tr("patientDashboard.tracker.mood", "Mood")}{" "}
                         {translateMood(log.mood)}
                       </p>
                     </div>
@@ -1653,8 +1844,9 @@ export default function PatientDashboard({ session, onLogout }) {
             >
               <div className="mb-3 flex items-center justify-between">
                 <p className="font-semibold">
-                  {tr("patientDashboard.reports.report", "Report")} • {" "}
-                  {tr("patientDashboard.reports.case", "Case")} {selectedReport.caseId}
+                  {tr("patientDashboard.reports.report", "Report")} ï¿½{" "}
+                  {tr("patientDashboard.reports.case", "Case")}{" "}
+                  {selectedReport.caseId}
                 </p>
                 <button
                   onClick={() => setSelectedReport(null)}
@@ -1666,10 +1858,10 @@ export default function PatientDashboard({ session, onLogout }) {
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="text-xs text-slate-500">
-                  {tr("patientDashboard.reports.doctor", "Doctor")}: {" "}
+                  {tr("patientDashboard.reports.doctor", "Doctor")}:{" "}
                   {selectedReport.doctorName ||
-                    tr("patientDashboard.reports.doctor", "Doctor")} {" "}
-                  • {new Date(selectedReport.createdAt).toLocaleString()}
+                    tr("patientDashboard.reports.doctor", "Doctor")}{" "}
+                  ï¿½ {new Date(selectedReport.createdAt).toLocaleString()}
                 </p>
                 <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                   {selectedReport.report}
@@ -1747,7 +1939,9 @@ function MetricCard({ title, value, subtitle, index = 0 }) {
       whileHover={{ y: -2 }}
       className="rounded-2xl border border-white/70 bg-white/80 p-4 backdrop-blur-xl"
     >
-      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{title}</p>
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        {title}
+      </p>
       <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
       <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
     </motion.div>
@@ -1762,7 +1956,9 @@ function OverviewCard({ title, lines, action, onAction }) {
       viewport={{ once: true, amount: 0.25 }}
       className="rounded-2xl border border-white/70 bg-white/85 p-4 backdrop-blur-xl"
     >
-      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{title}</p>
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        {title}
+      </p>
       <div className="mt-2 space-y-1 text-sm text-slate-700">
         {lines.map((line) => (
           <p key={line}>{line}</p>
@@ -1788,7 +1984,9 @@ function SectionCard({ title, children }) {
       viewport={{ once: true, amount: 0.25 }}
       className="rounded-2xl border border-white/70 bg-white/85 p-4 backdrop-blur-xl"
     >
-      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{title}</p>
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        {title}
+      </p>
       {children}
     </motion.div>
   );
