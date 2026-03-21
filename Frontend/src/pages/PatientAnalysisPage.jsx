@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bot,
   CheckCircle2,
   Clock3,
   Eye,
   MessageCircle,
+  PhoneCall,
   Send,
   Sparkles,
   Stethoscope,
@@ -160,11 +162,30 @@ export default function PatientAnalysisPage({ session }) {
     [t],
   );
 
+  const situationOptions = useMemo(
+    () => [
+      {
+        value: "normal",
+        label: tr("analysisPage.situation.normal", "Normal"),
+      },
+      {
+        value: "medium",
+        label: tr("analysisPage.situation.medium", "Medium"),
+      },
+      {
+        value: "emergency",
+        label: tr("analysisPage.situation.emergency", "Emergency"),
+      },
+    ],
+    [t],
+  );
+
   const [form, setForm] = useState({
     age: "",
     gender: "",
     symptoms: "",
     duration: "1-2 days",
+    situationLevel: "normal",
     severity: 5,
     medications: "",
     allergies: "",
@@ -188,6 +209,7 @@ export default function PatientAnalysisPage({ session }) {
   const [consultationInfo, setConsultationInfo] = useState(null);
   const [doctorReportOpen, setDoctorReportOpen] = useState(false);
   const [doctorProgressIndex, setDoctorProgressIndex] = useState(0);
+  const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
   const history = useMemo(() => {
     void refreshTick;
@@ -203,6 +225,22 @@ export default function PatientAnalysisPage({ session }) {
   ].includes(currentStatus);
   const doctorStructuredReport =
     activeCase?.doctorFlow?.doctorStructuredReport || null;
+  const isEmergencyFromCase = Boolean(
+    activeCase?.ai?.report?.isEmergencyCase ||
+    ["high", "critical"].includes(
+      String(
+        activeCase?.ai?.report?.emergencyAssessment?.level || "",
+      ).toLowerCase(),
+    ),
+  );
+  const emergencyContactName =
+    activeCase?.ai?.emergencyContactName ||
+    activeCase?.ai?.patientEmergencyContactName ||
+    "Emergency contact";
+  const emergencyContactPhone =
+    activeCase?.ai?.emergencyPhone ||
+    activeCase?.ai?.patientEmergencyPhone ||
+    "112";
   const showDoctorProgress =
     Boolean(activeCase?.doctorFlow?.consultationId) &&
     !doctorStructuredReport &&
@@ -384,6 +422,7 @@ export default function PatientAnalysisPage({ session }) {
 
     setSubmitting(true);
     setAnalysisError("");
+    setEmergencyModalOpen(false);
 
     const patientProfile = findPatientCacheByEmail(session?.email || "") || {};
 
@@ -392,6 +431,7 @@ export default function PatientAnalysisPage({ session }) {
       gender: form.gender || patientProfile.gender || session?.gender,
       symptoms: form.symptoms,
       symptomDuration: form.duration,
+      situationLevel: form.situationLevel,
       existingConditions: patientProfile.knownConditions || "",
       medications: form.medications,
       allergies: form.allergies || patientProfile.allergiesNotes || "",
@@ -454,6 +494,24 @@ export default function PatientAnalysisPage({ session }) {
             "AI triage completed. Please consult a doctor for confirmation.",
           ),
         urgency: structuredReport?.urgency || "moderate",
+        patientReportedSituation:
+          structuredReport?.patientReportedSituation || form.situationLevel,
+        isEmergencyCase: Boolean(
+          structuredReport?.isEmergencyCase ||
+          ["high", "critical"].includes(
+            String(
+              structuredReport?.emergencyAssessment?.level || "",
+            ).toLowerCase(),
+          ),
+        ),
+        emergencyContactName:
+          response?.patientProfile?.emergencyContactName ||
+          payload.emergencyContactName ||
+          "",
+        emergencyPhone:
+          response?.patientProfile?.emergencyPhone ||
+          payload.emergencyPhone ||
+          "112",
         recommendedDoctor:
           structuredReport?.recommendedSpecialist ||
           tr("analysisPage.generalPhysician", "General Physician"),
@@ -533,6 +591,7 @@ export default function PatientAnalysisPage({ session }) {
       setMatchedSpecialistLabel("");
       setConsultationInfo(null);
       setConsultationError("");
+      setEmergencyModalOpen(ai.isEmergencyCase);
       refresh();
     } catch (err) {
       setAnalysisError(
@@ -731,11 +790,14 @@ export default function PatientAnalysisPage({ session }) {
                 {tr("analysisPage.coreFlow", "VedaAI Core Flow")}
               </p>
               <h1 className="mt-1 p-0.5 bg-linear-to-r from-blue-900 via-blue-800 to-blue-700 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
-                {tr(
-                  "analysisPage.title",
-                  "Start Diagnosis with AI",
-                )}
+                {tr("analysisPage.title", "Start Diagnosis with AI")}
               </h1>
+              {isEmergencyFromCase ? (
+                <p className="mt-2 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                  <AlertTriangle size={12} />
+                  {tr("analysisPage.emergencyBadge", "Emergency")}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex gap-2">
@@ -852,7 +914,8 @@ export default function PatientAnalysisPage({ session }) {
 
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <p className="text-xs text-slate-500">
-                  {tr("analysisPage.severity", "Severity")}: {form.severity}/10
+                  {tr("analysisPage.severity", "Severity of pain")}:{" "}
+                  {form.severity}/10
                 </p>
                 <input
                   type="range"
@@ -865,6 +928,28 @@ export default function PatientAnalysisPage({ session }) {
                   className="w-full"
                 />
               </div>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <p className="text-xs text-slate-500">
+                {tr(
+                  "analysisPage.situation.label",
+                  "Current situation (self-reported)",
+                )}
+              </p>
+              <select
+                value={form.situationLevel}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, situationLevel: e.target.value }))
+                }
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+              >
+                {situationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <input
@@ -958,6 +1043,12 @@ export default function PatientAnalysisPage({ session }) {
                   {activeCase.ai.summary}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
+                  {isEmergencyFromCase ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                      <AlertTriangle size={12} />
+                      {tr("analysisPage.emergencyBadge", "Emergency")}
+                    </span>
+                  ) : null}
                   <span className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">
                     {tr("analysisPage.urgency", "Urgency")}:{" "}
                     {String(activeCase.ai.urgency || "").toUpperCase()}
@@ -1346,6 +1437,7 @@ export default function PatientAnalysisPage({ session }) {
                     );
                     setConsultationInfo(null);
                     setConsultationError("");
+                    setEmergencyModalOpen(false);
                   }}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
                 >
@@ -1361,12 +1453,78 @@ export default function PatientAnalysisPage({ session }) {
                     {row.ai?.recommendedDoctor ||
                       tr("analysisPage.generalPhysician", "General Physician")}
                   </p>
+                  {(row?.ai?.report?.isEmergencyCase ||
+                    ["high", "critical"].includes(
+                      String(
+                        row?.ai?.report?.emergencyAssessment?.level || "",
+                      ).toLowerCase(),
+                    )) && (
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-rose-700">
+                      <AlertTriangle size={12} />
+                      {tr("analysisPage.emergencyBadge", "Emergency")}
+                    </p>
+                  )}
                 </button>
               ))}
             </div>
           )}
         </Motion.div>
       </div>
+
+      {emergencyModalOpen && isEmergencyFromCase ? (
+        <div className="fixed inset-0 z-170 grid place-items-center bg-slate-900/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-5 shadow-2xl sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                <AlertTriangle size={18} />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
+                  {tr("analysisPage.emergencyBadge", "Emergency")}
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                  {tr(
+                    "analysisPage.emergencyModal.title",
+                    "This case may need urgent attention",
+                  )}
+                </h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  {tr(
+                    "analysisPage.emergencyModal.body",
+                    "Your inputs and AI triage indicate elevated risk. Please contact emergency support immediately and avoid delaying care.",
+                  )}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">
+                  {emergencyContactName}: {emergencyContactPhone}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = `tel:${emergencyContactPhone}`;
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              >
+                <PhoneCall size={14} />
+                {tr(
+                  "analysisPage.emergencyModal.contact",
+                  "Call Emergency Contact",
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmergencyModalOpen(false)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {tr("analysisPage.emergencyModal.dismiss", "I Understand")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {reportOpen && activeCase?.ai?.report ? (
         <div className="fixed inset-0 z-160 grid place-items-center bg-slate-900/45 p-4 backdrop-blur-sm">
