@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowUpRight,
@@ -285,7 +285,18 @@ export default function EmergencyPage({ session = null }) {
   const tr = (key, defaultValue, options = {}) =>
     t(key, { defaultValue, ...options });
 
+  const durationUnitOptions = useMemo(
+    () => [
+      { value: "minutes", label: tr("emergencyPage.duration.minutes", "Minutes") },
+      { value: "hours", label: tr("emergencyPage.duration.hours", "Hours") },
+      { value: "days", label: tr("emergencyPage.duration.days", "Days") },
+    ],
+    [t],
+  );
+
   const [scenario, setScenario] = useState("");
+  const [scenarioDurationValue, setScenarioDurationValue] = useState("30");
+  const [scenarioDurationUnit, setScenarioDurationUnit] = useState("minutes");
   const [assessment, setAssessment] = useState(null);
   const [contact, setContact] = useState(() => buildInitialContact(session));
   const [savedState, setSavedState] = useState(false);
@@ -391,9 +402,25 @@ export default function EmergencyPage({ session = null }) {
     loadNearbyCare();
   }, []);
 
+  const formattedScenarioDuration = useMemo(() => {
+    const rawValue = String(scenarioDurationValue || "").trim();
+    if (!rawValue) return "";
+    const unitOption = durationUnitOptions.find((option) => option.value === scenarioDurationUnit);
+    const label = unitOption?.label || scenarioDurationUnit || "";
+    return `${rawValue} ${label}`.trim();
+  }, [durationUnitOptions, scenarioDurationUnit, scenarioDurationValue]);
+
   const onAssess = () => {
     if (!scenario.trim()) return;
-    setAssessment(assessScenario(scenario.trim()));
+    const combinedScenario = [
+      scenario.trim(),
+      formattedScenarioDuration
+        ? `Symptoms started about ${formattedScenarioDuration} ago.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    setAssessment(assessScenario(combinedScenario));
   };
 
   const saveContact = () => {
@@ -643,11 +670,34 @@ export default function EmergencyPage({ session = null }) {
                 or loss of consciousness if any.
               </p>
 
+              <div className="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={scenarioDurationValue}
+                  onChange={(e) => setScenarioDurationValue(e.target.value)}
+                  placeholder={tr("emergencyPage.duration.placeholder", "How long ago?")}
+                  className="min-w-0 rounded-full border border-[rgba(123,95,73,0.12)] bg-white/85 px-5 py-3 text-sm text-[#2a1d19] outline-none"
+                />
+                <select
+                  value={scenarioDurationUnit}
+                  onChange={(e) => setScenarioDurationUnit(e.target.value)}
+                  className="w-32 rounded-full border border-[rgba(123,95,73,0.12)] bg-white/85 px-4 py-3 text-sm text-[#2a1d19] outline-none"
+                >
+                  {durationUnitOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <textarea
                 value={scenario}
                 onChange={(e) => setScenario(e.target.value)}
                 placeholder="Example: Severe chest pain started 20 minutes ago, sweating, pain going to left arm, difficulty breathing."
-                className="mt-6 min-h-[190px] w-full rounded-[2rem] border border-[rgba(123,95,73,0.12)] bg-white/80 px-5 py-4 text-sm leading-7 text-[#2a1d19] outline-none placeholder:text-[#9f8b7d]"
+                className="mt-3 min-h-[190px] w-full rounded-[2rem] border border-[rgba(123,95,73,0.12)] bg-white/80 px-5 py-4 text-sm leading-7 text-[#2a1d19] outline-none placeholder:text-[#9f8b7d]"
               />
 
               <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -833,3 +883,4 @@ export default function EmergencyPage({ session = null }) {
     </section>
   );
 }
+
