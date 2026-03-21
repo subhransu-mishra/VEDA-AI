@@ -1,4 +1,4 @@
-﻿// src/App.jsx
+// src/App.jsx
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter,
@@ -31,6 +31,8 @@ const AdminVerificationPanel = lazy(
 );
 const PatientAnalysisPage = lazy(() => import("./pages/PatientAnalysisPage"));
 const EmergencyPage = lazy(() => import("./pages/EmergencyPage"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
+const PrivateConcernPage = lazy(() => import("./pages/PrivateConcernPage"));
 
 const DoctorSignup = lazy(() => import("./components/DoctorSignup"));
 const DoctorVerification = lazy(
@@ -281,6 +283,14 @@ function AppInner() {
     navigate("/emergency");
   };
 
+  const goToPricing = () => {
+    navigate("/pricing");
+  };
+
+  const goToPrivateConcern = () => {
+    navigate("/private-concern");
+  };
+
   return (
     <>
       <Navbar
@@ -291,6 +301,8 @@ function AppInner() {
         onOpenSignup={openSignup}
         onGetStarted={goToGetStarted}
         onOpenEmergency={goToEmergency}
+        onOpenPricing={goToPricing}
+        onOpenPrivateConcern={goToPrivateConcern}
       />
 
       <main className={isHome ? "" : "pt-22 sm:pt-24"}>
@@ -311,6 +323,8 @@ function AppInner() {
             />
 
             <Route path="/emergency" element={<EmergencyPage session={session} />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/private-concern" element={<PrivateConcernPage session={session} />} />
 
             <Route
               path="/login"
