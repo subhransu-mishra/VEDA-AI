@@ -7,12 +7,11 @@ import {
   LayoutDashboard,
   ChevronRight,
   Home,
-  Info,
-  Zap,
   Star,
   ShieldCheck,
   Sparkles,
   ShieldAlert,
+  LockKeyhole,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -105,6 +104,42 @@ function EmergencyCta({ label, onClick, mobile = false }) {
   );
 }
 
+function PrivateConcernCta({ label, onClick, mobile = false }) {
+  if (mobile) {
+    return (
+      <motion.button
+        variants={linkVariants}
+        onClick={onClick}
+        className="relative flex w-full items-center justify-between overflow-hidden rounded-[1.5rem] border border-[rgba(47,36,29,0.12)] bg-[linear-gradient(135deg,#2f241d_0%,#4b392d_58%,#735847_100%)] px-4 py-4 text-left text-[#f8f0e7] shadow-[0_20px_40px_-28px_rgba(47,36,29,0.9)]"
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_36%)]" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+            <LockKeyhole size={18} />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#e4c8ae]">
+              Private
+            </p>
+            <p className="mt-1 text-sm font-semibold">{label}</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="relative text-[#f8f0e7]/82" />
+      </motion.button>
+    );
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-2 rounded-full bg-[#2f241d] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#f8f0e7] shadow-[0_16px_32px_-24px_rgba(47,36,29,0.9)] transition hover:bg-[#241b16]"
+    >
+      <LockKeyhole size={12} />
+      {label}
+    </button>
+  );
+}
+
 export default function Navbar({
   session,
   doctorVerificationStatus = "not_submitted",
@@ -113,6 +148,8 @@ export default function Navbar({
   onOpenSignup,
   onGetStarted,
   onOpenEmergency,
+  onOpenPrivateConcern,
+  onOpenPricing,
 }) {
   const { t, i18n } = useTranslation();
   const tr = (key, defaultValue, options = {}) =>
@@ -122,10 +159,9 @@ export default function Navbar({
   const location = useLocation();
 
   const navItems = [
-    { label: tr("common.home", "Home"), id: "home", icon: Home },
-    { label: tr("common.about", "About"), id: "about", icon: Info },
-    { label: tr("common.features", "Features"), id: "features", icon: Zap },
-    { label: tr("common.reviews", "Reviews"), id: "reviews", icon: Star },
+    { label: tr("common.home", "Home"), type: "section", target: "home", icon: Home },
+    { label: tr("common.reviews", "Reviews"), type: "section", target: "reviews", icon: Star },
+    { label: tr("common.pricing", "Pricing"), type: "route", target: "/pricing", icon: Sparkles },
   ];
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -180,6 +216,16 @@ export default function Navbar({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const handleNavItemClick = (item) => {
+    if (item.type === "section") {
+      handleSectionNav(item.target);
+      return;
+    }
+
+    setMenuOpen(false);
+    navigate(item.target);
+  };
+
   const goPrimaryAuthRoute = () => {
     setMenuOpen(false);
     if (!isLoggedIn) return;
@@ -200,6 +246,16 @@ export default function Navbar({
   const goEmergency = () => {
     setMenuOpen(false);
     onOpenEmergency?.();
+  };
+
+  const goPrivateConcern = () => {
+    setMenuOpen(false);
+    onOpenPrivateConcern?.();
+  };
+
+  const goPricing = () => {
+    setMenuOpen(false);
+    onOpenPricing?.();
   };
 
   const primaryLabel = isAdmin
@@ -236,9 +292,9 @@ export default function Navbar({
           <nav className="pointer-events-auto hidden flex-1 items-center justify-center gap-1 rounded-full border border-slate-200/60 bg-white/76 px-2 py-1.5 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl lg:flex">
             {navItems.map((item) => (
               <button
-                key={item.id}
-                onClick={() => handleSectionNav(item.id)}
-                className="rounded-full px-3 xl:px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 transition-colors hover:bg-slate-100/70 hover:text-slate-900"
+                key={item.label}
+                onClick={() => handleNavItemClick(item)}
+                className="rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 transition-colors hover:bg-slate-100/70 hover:text-slate-900 xl:px-4"
               >
                 {item.label}
               </button>
@@ -263,18 +319,22 @@ export default function Navbar({
                 label={tr("common.urgentHelp", "Need Help?")}
                 onClick={goEmergency}
               />
+              <PrivateConcernCta
+                label={tr("common.privateConcern", "Private Concern")}
+                onClick={goPrivateConcern}
+              />
 
               {!isLoggedIn ? (
                 <>
                   <button
                     onClick={() => onOpenLogin?.("patient")}
-                    className={`rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${loginActive ? "text-blue-600" : "text-slate-900"}`}
+                    className={`rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors xl:px-5 ${loginActive ? "text-blue-600" : "text-slate-900"}`}
                   >
                     {tr("common.login", "Login")}
                   </button>
                   <button
                     onClick={onOpenSignup}
-                    className={`rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
+                    className={`rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors xl:px-5 ${signupActive ? "bg-blue-700 text-white" : "bg-[#0a1128] text-white"}`}
                   >
                     {tr("common.signUp", "Sign up")}
                   </button>
@@ -304,13 +364,13 @@ export default function Navbar({
                   )}
                   <button
                     onClick={goPrimaryAuthRoute}
-                    className="rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600"
+                    className="rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600 xl:px-5"
                   >
                     {primaryLabel}
                   </button>
                   <button
                     onClick={() => setShowLogoutConfirm(true)}
-                    className="rounded-full px-4 xl:px-5 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-red-500"
+                    className="rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-red-500 xl:px-5"
                   >
                     {tr("common.logout", "Logout")}
                   </button>
@@ -377,14 +437,19 @@ export default function Navbar({
                   onClick={goEmergency}
                   mobile
                 />
+                <PrivateConcernCta
+                  label={tr("common.privateConcern", "Private Concern")}
+                  onClick={goPrivateConcern}
+                  mobile
+                />
               </div>
 
               <div className="flex flex-col px-4 py-6">
                 {navItems.map((item) => (
                   <motion.button
-                    key={item.id}
+                    key={item.label}
                     variants={linkVariants}
-                    onClick={() => handleSectionNav(item.id)}
+                    onClick={() => handleNavItemClick(item)}
                     className="group flex items-center justify-between rounded-2xl p-4"
                   >
                     <div className="flex items-center gap-4">
