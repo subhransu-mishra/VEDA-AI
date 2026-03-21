@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import {
   ArrowUpRight,
   HeartPulse,
+  LocateFixed,
   MapPin,
   Phone,
+  RefreshCw,
   Save,
   ShieldAlert,
   Siren,
@@ -162,6 +164,122 @@ function assessScenario(input) {
   };
 }
 
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceKm(fromLat, fromLon, toLat, toLon) {
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLon = toRadians(toLon - fromLon);
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(deltaLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+}
+
+function formatDistance(distanceKm) {
+  if (!Number.isFinite(distanceKm)) return "";
+  if (distanceKm < 1) return `${Math.round(distanceKm * 1000)} m`;
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
+}
+
+function formatNearbyAddress(tags = {}, fallback = "") {
+  const parts = [
+    tags["addr:suburb"],
+    tags["addr:street"],
+    tags["addr:city"],
+    tags["addr:state"],
+  ].filter(Boolean);
+
+  return parts.join(", ") || fallback || "Nearby medical support";
+}
+
+function mapAmenityLabel(type = "") {
+  if (type === "hospital") return "Hospital";
+  if (type === "clinic") return "Clinic";
+  if (type === "pharmacy") return "Pharmacy";
+  return "Medical support";
+}
+
+async function reverseGeocode(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("reverse-geocode-failed");
+  return response.json();
+}
+
+async function fetchNearbyMedicalPlaces(lat, lon) {
+  const query = `
+    [out:json][timeout:25];
+    (
+      node(around:5000,${lat},${lon})["amenity"~"hospital|clinic|pharmacy"];
+      way(around:5000,${lat},${lon})["amenity"~"hospital|clinic|pharmacy"];
+      relation(around:5000,${lat},${lon})["amenity"~"hospital|clinic|pharmacy"];
+    );
+    out center 20;
+  `;
+
+  const response = await fetch(
+    `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
+  );
+  if (!response.ok) throw new Error("nearby-care-fetch-failed");
+
+  const data = await response.json();
+  const elements = Array.isArray(data?.elements) ? data.elements : [];
+
+  return elements
+    .map((element) => {
+      const tags = element.tags || {};
+      const placeLat = element.lat ?? element.center?.lat;
+      const placeLon = element.lon ?? element.center?.lon;
+
+      if (!placeLat || !placeLon) return null;
+
+      const distanceKm = calculateDistanceKm(lat, lon, placeLat, placeLon);
+      const amenity = tags.amenity || "medical";
+      const phone = tags["contact:phone"] || tags.phone || "";
+      const osmType =
+        element.type === "node"
+          ? "node"
+          : element.type === "way"
+            ? "way"
+            : "relation";
+
+      return {
+        id: `${element.type}-${element.id}`,
+        name: tags.name || `${mapAmenityLabel(amenity)} near you`,
+        area: formatNearbyAddress(tags, tags["addr:full"]),
+        phone: normalizePhone(phone),
+        displayPhone: phone || "Phone not listed",
+        mapsUrl: `https://maps.google.com/?q=${placeLat},${placeLon}`,
+        sourceUrl: `https://www.openstreetmap.org/${osmType}/${element.id}`,
+        note: `${mapAmenityLabel(amenity)} identified from your current location.`,
+        accent:
+          amenity === "hospital"
+            ? "#b9382f"
+            : amenity === "pharmacy"
+              ? "#2f78d9"
+              : "#7b5f49",
+        ribbon:
+          amenity === "hospital"
+            ? "linear-gradient(135deg,#fff1ef 0%,#f6d8d2 100%)"
+            : amenity === "pharmacy"
+              ? "linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%)"
+              : "linear-gradient(135deg,#f8f1e9 0%,#efe1d0 100%)",
+        typeLabel: mapAmenityLabel(amenity),
+        distanceKm,
+        distanceLabel: formatDistance(distanceKm),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, 6);
+}
+
 export default function EmergencyPage({ session = null }) {
   const { t } = useTranslation();
   const tr = (key, defaultValue, options = {}) =>
@@ -171,6 +289,10 @@ export default function EmergencyPage({ session = null }) {
   const [assessment, setAssessment] = useState(null);
   const [contact, setContact] = useState(() => buildInitialContact(session));
   const [savedState, setSavedState] = useState(false);
+  const [userLocationLabel, setUserLocationLabel] = useState("");
+  const [locationStatus, setLocationStatus] = useState("idle");
+  const [locationError, setLocationError] = useState("");
+  const [dynamicNearbyCare, setDynamicNearbyCare] = useState([]);
 
   useEffect(() => {
     setContact(buildInitialContact(session));
@@ -186,6 +308,88 @@ export default function EmergencyPage({ session = null }) {
     const normalized = normalizePhone(contact.phone || "");
     return normalized ? `tel:${normalized}` : "";
   }, [contact.phone]);
+
+  const visibleNearbyCare = dynamicNearbyCare.length ? dynamicNearbyCare : nearbyCare;
+
+  const loadNearbyCare = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationStatus("error");
+      setLocationError(
+        tr(
+          "emergencyPage.location.unsupported",
+          "Location is not supported on this device. Showing fallback emergency options instead.",
+        ),
+      );
+      return;
+    }
+
+    setLocationStatus("loading");
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const [reverseData, places] = await Promise.all([
+            reverseGeocode(coords.latitude, coords.longitude),
+            fetchNearbyMedicalPlaces(coords.latitude, coords.longitude),
+          ]);
+
+          const address = reverseData?.address || {};
+          const label =
+            [address.suburb, address.city || address.town || address.village]
+              .filter(Boolean)
+              .join(", ") ||
+            reverseData?.display_name ||
+            tr("emergencyPage.location.currentArea", "your current area");
+
+          setUserLocationLabel(label);
+          setDynamicNearbyCare(places);
+          setLocationStatus("success");
+
+          if (!places.length) {
+            setLocationError(
+              tr(
+                "emergencyPage.location.noResults",
+                "We could not find nearby live medical listings, so the fallback Bhubaneswar options are still shown below.",
+              ),
+            );
+          }
+        } catch {
+          setLocationStatus("error");
+          setLocationError(
+            tr(
+              "emergencyPage.location.fetchFailed",
+              "We could not load nearby live medical details right now. Fallback emergency options are still available below.",
+            ),
+          );
+        }
+      },
+      (error) => {
+        const denied = error?.code === 1;
+        setLocationStatus("error");
+        setLocationError(
+          denied
+            ? tr(
+                "emergencyPage.location.denied",
+                "Location permission was denied. You can allow it and try again to load nearby clinics and hospitals automatically.",
+              )
+            : tr(
+                "emergencyPage.location.unavailable",
+                "We could not determine your current location. You can try again, and fallback emergency options remain available below.",
+              ),
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 120000,
+      },
+    );
+  };
+
+  useEffect(() => {
+    loadNearbyCare();
+  }, []);
 
   const onAssess = () => {
     if (!scenario.trim()) return;
@@ -273,15 +477,61 @@ export default function EmergencyPage({ session = null }) {
         </motion.section>
 
         <section className="mt-12">
-          <div className="mb-6 flex items-center gap-3 text-[#7b5f49]">
-            <div className="h-px w-10 bg-[linear-gradient(90deg,#7b5f49,transparent)]" />
-            <p className="text-xs font-semibold uppercase tracking-[0.24em]">
-              Nearby emergency care in Bhubaneswar
-            </p>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-[#7b5f49]">
+              <div className="h-px w-10 bg-[linear-gradient(90deg,#7b5f49,transparent)]" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em]">
+                  {dynamicNearbyCare.length
+                    ? tr(
+                        "emergencyPage.location.liveHeading",
+                        "Nearby medical support from your location",
+                      )
+                    : tr(
+                        "emergencyPage.location.fallbackHeading",
+                        "Nearby emergency care in Bhubaneswar",
+                      )}
+                </p>
+                <p className="mt-1 text-sm text-[#8f7769]">
+                  {userLocationLabel
+                    ? tr(
+                        "emergencyPage.location.detectedArea",
+                        "Detected area: {{location}}",
+                        { location: userLocationLabel },
+                      )
+                    : tr(
+                        "emergencyPage.location.detecting",
+                        "Trying to detect current location for live nearby medical support.",
+                      )}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadNearbyCare}
+              disabled={locationStatus === "loading"}
+              className="inline-flex items-center gap-2 rounded-full border border-[rgba(123,95,73,0.14)] bg-white/84 px-4 py-2 text-sm font-semibold text-[#5e4738] disabled:opacity-60"
+            >
+              {locationStatus === "loading" ? (
+                <RefreshCw size={15} className="animate-spin" />
+              ) : (
+                <LocateFixed size={15} />
+              )}
+              {locationStatus === "loading"
+                ? tr("emergencyPage.location.loading", "Finding nearby care...")
+                : tr("emergencyPage.location.retry", "Use my location")}
+            </button>
           </div>
 
+          {locationError ? (
+            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
+              {locationError}
+            </div>
+          ) : null}
+
           <div className="space-y-5">
-            {nearbyCare.map((place, index) => (
+            {visibleNearbyCare.map((place, index) => (
               <motion.article
                 key={place.id}
                 initial={{ opacity: 0, y: 24 }}
@@ -305,6 +555,22 @@ export default function EmergencyPage({ session = null }) {
                       >
                         <MapPin size={12} /> {place.area}
                       </span>
+                      {place.typeLabel ? (
+                        <span
+                          className="inline-flex items-center gap-2 rounded-full bg-white/72 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                          style={{ color: place.accent }}
+                        >
+                          {place.typeLabel}
+                        </span>
+                      ) : null}
+                      {place.distanceLabel ? (
+                        <span
+                          className="inline-flex items-center gap-2 rounded-full bg-white/72 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                          style={{ color: place.accent }}
+                        >
+                          {place.distanceLabel} away
+                        </span>
+                      ) : null}
                       <a
                         href={place.sourceUrl}
                         target="_blank"
@@ -324,12 +590,18 @@ export default function EmergencyPage({ session = null }) {
                   </div>
 
                   <div className="flex flex-col gap-3 lg:items-end">
-                    <a
-                      href={`tel:${place.phone}`}
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#b9382f] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-22px_rgba(185,56,47,0.92)] transition hover:scale-[1.01]"
-                    >
-                      <Phone size={16} /> Contact now
-                    </a>
+                    {place.phone ? (
+                      <a
+                        href={`tel:${place.phone}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-[#b9382f] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-22px_rgba(185,56,47,0.92)] transition hover:scale-[1.01]"
+                      >
+                        <Phone size={16} /> Contact now
+                      </a>
+                    ) : (
+                      <div className="inline-flex items-center justify-center gap-2 rounded-full border border-dashed border-[rgba(123,95,73,0.2)] bg-white/70 px-5 py-3 text-sm font-semibold text-[#7b5f49]">
+                        <Phone size={16} /> Phone not listed
+                      </div>
+                    )}
                     <a
                       href={place.mapsUrl}
                       target="_blank"

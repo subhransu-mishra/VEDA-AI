@@ -138,23 +138,19 @@ export default function PatientAnalysisPage({ session }) {
     [t],
   );
 
-  const durationOptions = useMemo(
+  const durationUnitOptions = useMemo(
     () => [
       {
-        value: "Less than 24h",
-        label: tr("analysisPage.duration.lessThan24h", "Less than 24h"),
+        value: "minutes",
+        label: tr("analysisPage.duration.minutes", "Minutes"),
       },
       {
-        value: "1-2 days",
-        label: tr("analysisPage.duration.oneToTwoDays", "1-2 days"),
+        value: "hours",
+        label: tr("analysisPage.duration.hours", "Hours"),
       },
       {
-        value: "3-7 days",
-        label: tr("analysisPage.duration.threeToSevenDays", "3-7 days"),
-      },
-      {
-        value: "1+ weeks",
-        label: tr("analysisPage.duration.onePlusWeeks", "1+ weeks"),
+        value: "days",
+        label: tr("analysisPage.duration.days", "Days"),
       },
     ],
     [t],
@@ -164,7 +160,8 @@ export default function PatientAnalysisPage({ session }) {
     age: "",
     gender: "",
     symptoms: "",
-    duration: "1-2 days",
+    durationValue: "1",
+    durationUnit: "days",
     severity: 5,
     medications: "",
     allergies: "",
@@ -331,6 +328,17 @@ export default function PatientAnalysisPage({ session }) {
 
   const refresh = () => setRefreshTick((v) => v + 1);
 
+  const formattedDuration = useMemo(() => {
+    const rawValue = String(form.durationValue || "").trim();
+    if (!rawValue) return "";
+
+    const unitOption = durationUnitOptions.find(
+      (option) => option.value === form.durationUnit,
+    );
+    const label = unitOption?.label || form.durationUnit || "";
+    return `${rawValue} ${label}`.trim();
+  }, [durationUnitOptions, form.durationUnit, form.durationValue]);
+
   const appendChat = (role, text) => {
     if (!activeCase?.id || !text.trim()) return null;
     const now = new Date().toISOString();
@@ -391,7 +399,9 @@ export default function PatientAnalysisPage({ session }) {
       age: form.age || patientProfile.age || session?.age,
       gender: form.gender || patientProfile.gender || session?.gender,
       symptoms: form.symptoms,
-      symptomDuration: form.duration,
+      symptomDuration:
+        formattedDuration ||
+        tr("analysisPage.duration.fallback", "Not specified"),
       existingConditions: patientProfile.knownConditions || "",
       medications: form.medications,
       allergies: form.allergies || patientProfile.allergiesNotes || "",
@@ -491,7 +501,10 @@ export default function PatientAnalysisPage({ session }) {
 
       const created = createAnalysisCase({
         session,
-        form,
+        form: {
+          ...form,
+          duration: formattedDuration,
+        },
         backendCaseId: response?.case?._id || null,
         backendPublicCaseId: response?.case?.caseId || "",
         uploads,
@@ -826,17 +839,43 @@ export default function PatientAnalysisPage({ session }) {
             />
 
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <select
-                value={form.duration}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, duration: e.target.value }))
-                }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-              >
-                {durationOptions.map((option) => (
-                  <option key={option.value}>{option.label}</option>
-                ))}
-              </select>
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <p className="text-xs text-slate-500">
+                  {tr("analysisPage.duration.label", "How long since it started?")}
+                </p>
+                <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.durationValue}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        durationValue: e.target.value,
+                      }))
+                    }
+                    placeholder={tr("analysisPage.duration.valuePlaceholder", "Enter time")}
+                    className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm outline-none"
+                  />
+                  <select
+                    value={form.durationUnit}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        durationUnit: e.target.value,
+                      }))
+                    }
+                    className="w-28 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm outline-none sm:w-32"
+                  >
+                    {durationUnitOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <p className="text-xs text-slate-500">
