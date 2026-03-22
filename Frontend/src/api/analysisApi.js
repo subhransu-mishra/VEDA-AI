@@ -5,6 +5,24 @@ const extractErrorMessage = (error, fallbackMessage) => {
 };
 
 export const analysisApi = {
+  async parseVoiceInput({ token, text }) {
+    try {
+      const { data } = await api.post(
+        "/voice/parse",
+        { text },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      return data;
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, "Voice parsing failed"));
+    }
+  },
+
   async analyzeCase({ token, payload, reports = [] }) {
     try {
       const formData = new FormData();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,6 +14,8 @@ import {
   Sparkles,
   Stethoscope,
   Upload,
+  Mic,
+  MicOff,
   X,
   UserRound,
 } from "lucide-react";
@@ -94,10 +96,88 @@ const extractPrimarySpecialist = (report) =>
   report?.recommended_resolution?.primary_specialist ||
   "";
 
+const parseDurationValueUnit = (rawDuration) => {
+  const text = String(rawDuration || "").trim();
+  if (!text) return null;
+
+  // Avoid mapping frequency phrases (e.g. "3 times a day") as duration.
+  if (
+    /(times?\s*(a|per)\s*(day|week|month)|once|twice|thrice|daily|weekly|monthly|every\s+\d+)/i.test(
+      text,
+    )
+  ) {
+    return null;
+  }
+
+  const match = text.match(
+    /(\d+)\s*(minute|minutes|hour|hours|day|days|week|weeks|month|months)/i,
+  );
+
+  if (!match) return null;
+
+  const quantity = match[1];
+  const normalizedUnit = String(match[2]).toLowerCase();
+
+  if (normalizedUnit.startsWith("minute")) {
+    return { durationValue: quantity, durationUnit: "minutes" };
+  }
+  if (normalizedUnit.startsWith("hour")) {
+    return { durationValue: quantity, durationUnit: "hours" };
+  }
+  if (normalizedUnit.startsWith("day")) {
+    return { durationValue: quantity, durationUnit: "days" };
+  }
+  if (normalizedUnit.startsWith("week")) {
+    return { durationValue: quantity, durationUnit: "weeks" };
+  }
+  if (normalizedUnit.startsWith("month")) {
+    return { durationValue: quantity, durationUnit: "months" };
+  }
+
+  return null;
+};
+
+const extractFrequencyNote = (rawDuration) => {
+  const text = String(rawDuration || "").trim();
+  if (!text) return "";
+
+  if (
+    /(times?\s*(a|per)\s*(day|week|month)|once|twice|thrice|daily|weekly|monthly|every\s+\d+)/i.test(
+      text,
+    )
+  ) {
+    return text;
+  }
+
+  return "";
+};
+
+const mergeUniqueNoteLines = (existing = "", additions = []) => {
+  const lines = [
+    ...String(existing || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  ];
+
+  additions
+    .map((line) => String(line || "").trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      if (!lines.includes(line)) {
+        lines.push(line);
+      }
+    });
+
+  return lines.join("\n");
+};
+
 export default function PatientAnalysisPage({ session }) {
   const { t } = useTranslation();
-  const tr = (key, defaultValue, options = {}) =>
-    t(key, { defaultValue, ...options });
+  const tr = useCallback(
+    (key, defaultValue, options = {}) => t(key, { defaultValue, ...options }),
+    [t],
+  );
 
   const navigate = useNavigate();
 
@@ -118,7 +198,7 @@ export default function PatientAnalysisPage({ session }) {
       ),
       completed: tr("analysisPage.status.completed", "Completed"),
     }),
-    [t],
+    [tr],
   );
 
   const loadingTexts = useMemo(
@@ -137,7 +217,7 @@ export default function PatientAnalysisPage({ session }) {
         "Preparing specialist recommendation...",
       ),
     ],
-    [t],
+    [tr],
   );
 
   const durationUnitOptions = useMemo(
@@ -150,8 +230,20 @@ export default function PatientAnalysisPage({ session }) {
         value: "hours",
         label: tr("analysisPage.duration.hours", "Hours"),
       },
+      {
+        value: "days",
+        label: tr("analysisPage.duration.days", "Days"),
+      },
+      {
+        value: "weeks",
+        label: tr("analysisPage.duration.weeks", "Weeks"),
+      },
+      {
+        value: "months",
+        label: tr("analysisPage.duration.months", "Months"),
+      },
     ],
-    [t],
+    [tr],
   );
 
   const situationOptions = useMemo(
@@ -169,18 +261,19 @@ export default function PatientAnalysisPage({ session }) {
         label: tr("analysisPage.situation.emergency", "Emergency"),
       },
     ],
-    [t],
+    [tr],
   );
 
   const [form, setForm] = useState({
     age: "",
     gender: "",
     symptoms: "",
-    durationValue: "1",
+    durationValue: "",
     durationUnit: "days",
-    duration: "1-2 days",
+    duration: "",
     situationLevel: "normal",
     severity: 5,
+    existingConditions: "",
     medications: "",
     allergies: "",
     notes: "",
@@ -204,6 +297,19 @@ export default function PatientAnalysisPage({ session }) {
   const [doctorReportOpen, setDoctorReportOpen] = useState(false);
   const [doctorProgressIndex, setDoctorProgressIndex] = useState(0);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceParsing, setVoiceParsing] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+
+  const speechRecognitionRef = useRef(null);
+
+  const SpeechRecognitionCtor = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }, []);
+
+  const speechSupported = Boolean(SpeechRecognitionCtor);
 
   const history = useMemo(() => {
     void refreshTick;
@@ -267,6 +373,14 @@ export default function PatientAnalysisPage({ session }) {
 
     return () => clearInterval(intervalId);
   }, [showDoctorProgress]);
+
+  useEffect(() => {
+    return () => {
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const consultationId = activeCase?.doctorFlow?.consultationId;
@@ -357,6 +471,7 @@ export default function PatientAnalysisPage({ session }) {
   }, [
     activeCase?.id,
     activeCase?.doctorFlow?.consultationId,
+    activeCase?.doctorFlow?.doctorName,
     session?.token,
     statusLabelMap,
   ]);
@@ -439,7 +554,8 @@ export default function PatientAnalysisPage({ session }) {
         formattedDuration ||
         tr("analysisPage.duration.fallback", "Not specified"),
       situationLevel: form.situationLevel,
-      existingConditions: patientProfile.knownConditions || "",
+      existingConditions:
+        form.existingConditions || patientProfile.knownConditions || "",
       medications: form.medications,
       allergies: form.allergies || patientProfile.allergiesNotes || "",
       painLevel: form.severity,
@@ -625,6 +741,144 @@ export default function PatientAnalysisPage({ session }) {
 
     await sleep(550);
     appendChat("ai", aiFollowUp(text, activeCase.ai, tr));
+  };
+
+  const applyParsedVoiceData = (parsed) => {
+    if (!parsed || typeof parsed !== "object") return;
+
+    const parsedDuration = parseDurationValueUnit(parsed.symptomDuration);
+    const frequencyNote = extractFrequencyNote(parsed.symptomDuration);
+    const parsedPainLevel = Number(parsed.painLevel);
+
+    setForm((prev) => {
+      const existingConditionsValue = Array.isArray(parsed.existingConditions)
+        ? parsed.existingConditions.join(", ")
+        : String(parsed.existingConditions || "").trim();
+
+      const medicationsValue = Array.isArray(parsed.medications)
+        ? parsed.medications.join(", ")
+        : String(parsed.medications || "").trim();
+
+      const additionalNotes = String(parsed.additionalNotes || "").trim();
+      const frequencyLine = frequencyNote
+        ? `Symptom frequency reported: ${frequencyNote}`
+        : "";
+
+      return {
+        ...prev,
+        age:
+          parsed.age !== null && parsed.age !== undefined && parsed.age !== ""
+            ? String(parsed.age)
+            : prev.age,
+        gender: String(parsed.gender || "").trim() || prev.gender,
+        symptoms: String(parsed.symptoms || "").trim() || prev.symptoms,
+        durationValue: parsedDuration?.durationValue || prev.durationValue,
+        durationUnit: parsedDuration?.durationUnit || prev.durationUnit,
+        existingConditions: existingConditionsValue || prev.existingConditions,
+        medications: medicationsValue || prev.medications,
+        severity:
+          Number.isFinite(parsedPainLevel) &&
+          parsedPainLevel >= 1 &&
+          parsedPainLevel <= 10
+            ? parsedPainLevel
+            : prev.severity,
+        notes: mergeUniqueNoteLines(prev.notes, [
+          additionalNotes,
+          frequencyLine,
+        ]),
+      };
+    });
+  };
+
+  const onVoiceCapture = () => {
+    if (!speechSupported) {
+      setVoiceError(
+        tr(
+          "analysisPage.voice.notSupported",
+          "Voice input is not supported in this browser.",
+        ),
+      );
+      return;
+    }
+
+    if (!session?.token) {
+      setVoiceError(
+        tr(
+          "analysisPage.voice.loginRequired",
+          "Session expired. Please log in again to use voice input.",
+        ),
+      );
+      return;
+    }
+
+    if (isListening && speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop();
+      return;
+    }
+
+    setVoiceError("");
+    setVoiceTranscript("");
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onerror = (event) => {
+      setVoiceError(
+        tr("analysisPage.voice.error", "Voice capture failed: {{value}}", {
+          value: event?.error || "unknown_error",
+        }),
+      );
+    };
+
+    recognition.onresult = async (event) => {
+      const transcript = Array.from(event.results || [])
+        .map((result) => result?.[0]?.transcript || "")
+        .join(" ")
+        .trim();
+
+      if (!transcript) {
+        setVoiceError(
+          tr(
+            "analysisPage.voice.noSpeech",
+            "No speech detected. Please try again.",
+          ),
+        );
+        return;
+      }
+
+      setVoiceTranscript(transcript);
+      setVoiceParsing(true);
+
+      try {
+        const response = await analysisApi.parseVoiceInput({
+          token: session.token,
+          text: transcript,
+        });
+        applyParsedVoiceData(response?.parsed || {});
+      } catch (error) {
+        setVoiceError(
+          error?.message ||
+            tr("analysisPage.voice.parseFailed", "Failed to parse voice input"),
+        );
+      } finally {
+        setVoiceParsing(false);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      speechRecognitionRef.current = null;
+    };
+
+    speechRecognitionRef.current = recognition;
+    recognition.start();
   };
 
   const onConnectDoctor = async () => {
@@ -873,79 +1127,235 @@ export default function PatientAnalysisPage({ session }) {
               )}
             </p>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <input
-                value={form.age}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, age: e.target.value }))
-                }
-                placeholder={tr("analysisPage.age", "Age")}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-              />
-              <select
-                value={form.gender}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, gender: e.target.value }))
-                }
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-              >
-                <option value="">{tr("analysisPage.gender", "Gender")}</option>
-                <option>{tr("analysisPage.male", "Male")}</option>
-                <option>{tr("analysisPage.female", "Female")}</option>
-                <option>{tr("analysisPage.other", "Other")}</option>
-              </select>
-            </div>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-[linear-gradient(150deg,#ffffff_0%,#f4f9ff_55%,#eff7f2_100%)] p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {tr("analysisPage.voice.inputHeading", "Voice Symptom Input")}
+                </p>
+                <button
+                  type="button"
+                  onClick={onVoiceCapture}
+                  disabled={voiceParsing}
+                  className={`inline-flex min-w-26 items-center justify-center gap-1 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                    isListening
+                      ? "border-rose-300 bg-rose-50 text-rose-700"
+                      : "border-slate-200 bg-white text-slate-700"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                  {isListening
+                    ? tr("analysisPage.voice.listening", "Listening...")
+                    : tr("analysisPage.voice.button", "Voice")}
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                {tr(
+                  "analysisPage.voice.hint",
+                  "Tap voice and describe your symptoms naturally. We will auto-fill your form and you can edit anything before submit.",
+                )}
+              </p>
 
-            <input
-              required
-              value={form.symptoms}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, symptoms: e.target.value }))
-              }
-              placeholder={tr(
-                "analysisPage.mainSymptom",
-                "Main symptom / concern",
-              )}
-              className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            />
+              {voiceTranscript ? (
+                <p className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <span className="font-semibold">
+                    {tr("analysisPage.voice.transcript", "Transcript")}:
+                  </span>{" "}
+                  {voiceTranscript}
+                </p>
+              ) : null}
 
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs text-slate-500">
+              {!speechSupported ? (
+                <p className="mt-2 text-xs text-amber-700">
                   {tr(
-                    "analysisPage.duration.label",
-                    "How long since it started?",
+                    "analysisPage.voice.unsupportedHint",
+                    "Your browser does not support voice recognition. You can type symptoms manually.",
                   )}
                 </p>
-                <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              ) : null}
+
+              {voiceParsing ? (
+                <p className="mt-2 text-xs text-blue-700">
+                  {tr(
+                    "analysisPage.voice.parsing",
+                    "Converting voice to structured medical data...",
+                  )}
+                </p>
+              ) : null}
+
+              {voiceError ? (
+                <p className="mt-2 text-xs font-medium text-red-600">
+                  {voiceError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {tr("analysisPage.section.patientProfile", "Patient Profile")}
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.durationValue}
+                    value={form.age}
                     onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        durationValue: e.target.value,
-                      }))
+                      setForm((p) => ({ ...p, age: e.target.value }))
                     }
-                    placeholder={tr(
-                      "analysisPage.duration.valuePlaceholder",
-                      "Enter time",
-                    )}
-                    className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm outline-none"
+                    placeholder={tr("analysisPage.age", "Age")}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none"
                   />
                   <select
-                    value={form.durationUnit}
+                    value={form.gender}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, gender: e.target.value }))
+                    }
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none"
+                  >
+                    <option value="">
+                      {tr("analysisPage.gender", "Gender")}
+                    </option>
+                    <option>{tr("analysisPage.male", "Male")}</option>
+                    <option>{tr("analysisPage.female", "Female")}</option>
+                    <option>{tr("analysisPage.other", "Other")}</option>
+                  </select>
+                </div>
+
+                <input
+                  value={form.existingConditions}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      existingConditions: e.target.value,
+                    }))
+                  }
+                  placeholder={tr(
+                    "analysisPage.existingConditions",
+                    "Existing conditions (optional)",
+                  )}
+                  className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none"
+                />
+
+                <input
+                  value={form.medications}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, medications: e.target.value }))
+                  }
+                  placeholder={tr(
+                    "analysisPage.currentMedications",
+                    "Current medications (optional)",
+                  )}
+                  className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none"
+                />
+
+                <input
+                  value={form.allergies}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, allergies: e.target.value }))
+                  }
+                  placeholder={tr(
+                    "analysisPage.allergies",
+                    "Allergies (optional)",
+                  )}
+                  className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {tr("analysisPage.section.symptomDetails", "Symptom Details")}
+                </p>
+
+                <input
+                  required
+                  value={form.symptoms}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, symptoms: e.target.value }))
+                  }
+                  placeholder={tr(
+                    "analysisPage.mainSymptom",
+                    "Main symptom / concern",
+                  )}
+                  className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none"
+                />
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs text-slate-500">
+                    {tr(
+                      "analysisPage.duration.label",
+                      "How long since it started?",
+                    )}
+                  </p>
+                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.durationValue}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          durationValue: e.target.value,
+                        }))
+                      }
+                      placeholder={tr(
+                        "analysisPage.duration.valuePlaceholder",
+                        "Enter time",
+                      )}
+                      className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm outline-none"
+                    />
+                    <select
+                      value={form.durationUnit}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          durationUnit: e.target.value,
+                        }))
+                      }
+                      className="w-28 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm outline-none sm:w-32"
+                    >
+                      {durationUnitOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs text-slate-500">
+                    {tr("analysisPage.severity", "Severity of pain")}:{" "}
+                    {form.severity}/10
+                  </p>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={form.severity}
                     onChange={(e) =>
                       setForm((p) => ({
                         ...p,
-                        durationUnit: e.target.value,
+                        severity: Number(e.target.value),
                       }))
                     }
-                    className="w-28 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm outline-none sm:w-32"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs text-slate-500">
+                    {tr(
+                      "analysisPage.situation.label",
+                      "Current situation (self-reported)",
+                    )}
+                  </p>
+                  <select
+                    value={form.situationLevel}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, situationLevel: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                   >
-                    {durationUnitOptions.map((option) => (
+                    {situationOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -953,67 +1363,7 @@ export default function PatientAnalysisPage({ session }) {
                   </select>
                 </div>
               </div>
-
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs text-slate-500">
-                  {tr("analysisPage.severity", "Severity of pain")}:{" "}
-                  {form.severity}/10
-                </p>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={form.severity}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, severity: Number(e.target.value) }))
-                  }
-                  className="w-full"
-                />
-              </div>
             </div>
-
-            <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <p className="text-xs text-slate-500">
-                {tr(
-                  "analysisPage.situation.label",
-                  "Current situation (self-reported)",
-                )}
-              </p>
-              <select
-                value={form.situationLevel}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, situationLevel: e.target.value }))
-                }
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-              >
-                {situationOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <input
-              value={form.medications}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, medications: e.target.value }))
-              }
-              placeholder={tr(
-                "analysisPage.currentMedications",
-                "Current medications (optional)",
-              )}
-              className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            />
-
-            <input
-              value={form.allergies}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, allergies: e.target.value }))
-              }
-              placeholder={tr("analysisPage.allergies", "Allergies (optional)")}
-              className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-            />
 
             <textarea
               value={form.notes}

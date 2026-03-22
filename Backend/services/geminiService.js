@@ -16,11 +16,13 @@ const getGenAI = () => {
 /**
  * Sends a prompt to Gemini 1.5 Flash and returns the raw text response.
  * @param {string} prompt
+ * @param {{ model?: string }} [options]
  * @returns {Promise<string>} Raw text from the model
  */
-export const analyzeWithGemini = async (prompt) => {
+export const analyzeWithGemini = async (prompt, options = {}) => {
+  const modelName = options.model || "gemini-3-flash-preview";
   const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+  const model = genAI.getGenerativeModel({ model: modelName });
   const result = await model.generateContent(prompt);
   return result.response.text();
 };

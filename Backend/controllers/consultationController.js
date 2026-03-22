@@ -381,6 +381,7 @@ export const getDoctorConsultationRequests = async (req, res) => {
 export const getAllDoctorCases = async (req, res) => {
   try {
     const consultations = await Consultation.find({
+      doctorId: req.doctor._id,
       status: { $in: ["pending", "accepted", "completed", "rejected"] },
     })
       .populate("caseId", "caseId aiAnalysis status createdAt updatedAt")
