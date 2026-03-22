@@ -7,6 +7,7 @@ import diagnosisRoutes from "./routes/DiagnosisRoutes/DiagnosisRoute.js";
 import caseRoutes from "./routes/CaseRoutes/CaseRoute.js";
 import doctorRoutes from "./routes/doctorRoutes.js";
 import consultationRoutes from "./routes/consultationRoutes.js";
+import voiceRoutes from "./routes/voiceRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -20,6 +21,7 @@ app.use("/api/diagnosis", diagnosisRoutes);
 app.use("/api/case", caseRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/consultation", consultationRoutes);
+app.use("/api/voice", voiceRoutes);
 
 const startServer = async () => {
   await connectDb();
