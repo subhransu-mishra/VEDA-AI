@@ -67,7 +67,7 @@ VedaAI addresses this with:
 - Frontend: React + Vite single-page app.
 - Backend: Express API with JWT role-based protection.
 - Database: MongoDB via Mongoose.
-- AI: Google Gemini for triage and structuring.
+- AI: Anthropic Clude sonnet 4.6 , Google Gemini 2.5 pro and Qwen: Qwen3.5 for triage and structuring.
 - Files:
   - Patient case uploads: local disk storage.
   - Doctor verification documents: Cloudinary upload.
@@ -384,6 +384,7 @@ PORT=5000
 MONGODB_URI=mongodb://127.0.0.1:27017/veda
 JWT_SECRET=replace_with_strong_secret
 GEMINI_API_KEY=replace_with_gemini_key
+ANTHROPIC_API_KEY=replace_with_api_here
 CLOUDINARY_CLOUD_NAME=replace_with_cloud_name
 CLOUDINARY_API_KEY=replace_with_api_key
 CLOUDINARY_API_SECRET=replace_with_api_secret
@@ -534,3 +535,8 @@ Suggested contribution flow:
 No license file is currently present at repository root.
 
 Until a license is added, treat the project as all-rights-reserved by default.
+<img width="1900" height="868" alt="Screenshot 2026-03-22 232034" src="https://github.com/user-attachments/assets/cc8e6200-7c30-4543-b9a3-9e4197b08044" />
+<img width="1900" height="866" alt="Screenshot 2026-03-22 205747" src="https://github.com/user-attachments/assets/dfee7a24-689b-4de5-b11a-6943d3fdcc40" />
+<img width="1901" height="867" alt="Screenshot 2026-03-22 205722" src="https://github.com/user-attachments/assets/c50733ab-b438-4671-a69f-753cfdd223cb" />
+<img width="1903" height="870" alt="Screenshot 2026-03-22 205656" src="https://github.com/user-attachments/assets/ed414e1c-2e93-415c-a2a4-bec703859ea6" />
+
