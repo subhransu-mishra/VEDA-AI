@@ -131,19 +131,19 @@ export default function PricingPage({ session = null }) {
         ],
       },
       {
-        title: tr("pricing.patient.plus.title", "Care Plus"),
-        price: isAnnual ? "249" : "299",
+        title: tr("pricing.patient.plus.title", "AI + Doctor Consultation"),
+        price: "699",
         highlighted: true,
         description: tr(
           "pricing.patient.plus.description",
-          "For patients who need continuity, saved history, document analysis, and stronger doctor handoff.",
+          "For patients who want AI triage with doctor consultation in one complete care flow.",
         ),
         features: [
           tr("pricing.patient.plus.f1", "Unlimited AI analyses"),
-          tr("pricing.patient.plus.f2", "Saved case history"),
-          tr("pricing.patient.plus.f3", "Private summaries with context"),
-          tr("pricing.patient.plus.f4", "Medical report checker"),
-          tr("pricing.patient.plus.f5", "Priority doctor matching"),
+          tr("pricing.patient.plus.f2", "AI + doctor consultation flow"),
+          tr("pricing.patient.plus.f3", "Priority doctor matching"),
+          tr("pricing.patient.plus.f4", "Structured consult handoff"),
+          tr("pricing.patient.plus.f5", "Case history and follow-up context"),
         ],
       },
       {
