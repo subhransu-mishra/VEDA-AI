@@ -149,7 +149,7 @@ export default function Hero({
               <button
                 type="button"
                 onClick={onOpenSignup}
-                className="btn-primary px-5 py-3 text-sm font-semibold"
+                className="btn-primary cursor-pointer px-5 py-3 text-sm font-semibold"
               >
                 {tr("hero.signUp", "Sign up")}
               </button>
@@ -170,7 +170,7 @@ export default function Hero({
               <button
                 type="button"
                 onClick={onGetStarted}
-                className="btn-primary px-6 py-3 text-sm font-semibold"
+                className="btn-primary cursor-pointer px-6 py-3 text-sm font-semibold"
               >
                 {tr("common.getStarted", "Begin Diagnosis")}
               </button>
@@ -199,7 +199,7 @@ export default function Hero({
                 <button
                   type="button"
                   onClick={onOpenSignup}
-                  className="btn-primary px-6 py-3 text-sm font-semibold"
+                  className="btn-primary cursor-pointer px-6 py-3 text-sm font-semibold"
                 >
                   {tr("hero.signUp", "Sign up")}
                 </button>
@@ -208,7 +208,7 @@ export default function Hero({
               <button
                 type="button"
                 onClick={onGetStarted}
-                className="btn-primary px-6 py-3 text-sm font-semibold"
+                className="btn-primary cursor-pointer px-6 py-3 text-sm font-semibold"
               >
                 {tr("common.getStarted", "Begin Diagnosis")}
               </button>

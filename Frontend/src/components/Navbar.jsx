@@ -159,9 +159,24 @@ export default function Navbar({
   const location = useLocation();
 
   const navItems = [
-    { label: tr("common.home", "Home"), type: "section", target: "home", icon: Home },
-    { label: tr("common.reviews", "Reviews"), type: "section", target: "reviews", icon: Star },
-    { label: tr("common.pricing", "Pricing"), type: "route", target: "/pricing", icon: Sparkles },
+    {
+      label: tr("common.home", "Home"),
+      type: "section",
+      target: "home",
+      icon: Home,
+    },
+    {
+      label: tr("common.reviews", "Reviews"),
+      type: "section",
+      target: "reviews",
+      icon: Star,
+    },
+    {
+      label: tr("common.pricing", "Pricing"),
+      type: "route",
+      target: "/pricing",
+      icon: Sparkles,
+    },
   ];
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -314,7 +329,7 @@ export default function Navbar({
               </select>
             </div>
 
-            <div className="flex items-center gap-1 rounded-full border border-slate-200/60 bg-white/76 p-1 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+            <div className="flex items-center gap-1 cursor-pointer rounded-full border border-slate-200/60 bg-white/76 p-1 shadow-[0_18px_42px_-30px_rgba(15,23,42,0.35)] backdrop-blur-xl">
               <EmergencyCta
                 label={tr("common.urgentHelp", "Need Help?")}
                 onClick={goEmergency}
@@ -424,7 +439,7 @@ export default function Navbar({
                   <select
                     value={i18n.language}
                     onChange={(e) => i18n.changeLanguage(e.target.value)}
-                    className="w-full rounded-xl bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none"
+                    className="w-full rounded-xl bg-white cursor-pointer px-3 py-3 text-sm font-semibold text-slate-700 outline-none"
                   >
                     <option value="en">English</option>
                     <option value="hi">Hindi</option>
@@ -516,7 +531,7 @@ export default function Navbar({
                           setMenuOpen(false);
                           onGetStarted?.();
                         }}
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-50 py-4 text-[10px] font-bold uppercase tracking-widest text-emerald-700"
+                        className="flex w-full items-center cursor-pointer justify-center gap-2 rounded-2xl bg-emerald-50 py-4 text-[10px] font-bold uppercase tracking-widest text-emerald-700"
                       >
                         <Sparkles size={14} />
                         {tr("common.getStarted", "Begin Diagnosis")}
@@ -524,7 +539,7 @@ export default function Navbar({
                     )}
                     <button
                       onClick={goPrimaryAuthRoute}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0a1128] py-4 text-[10px] font-bold uppercase tracking-widest text-white"
+                      className="flex w-full items-center cursor-pointer justify-center gap-2 rounded-2xl bg-[#0a1128] py-4 text-[10px] font-bold uppercase tracking-widest text-white"
                     >
                       <LayoutDashboard size={14} /> {primaryLabel}
                     </button>
@@ -533,7 +548,7 @@ export default function Navbar({
                         setMenuOpen(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-50 py-4 text-[10px] font-bold uppercase tracking-widest text-red-500"
+                      className="flex w-full items-center cursor-pointer justify-center gap-2 rounded-2xl bg-red-50 py-4 text-[10px] font-bold uppercase tracking-widest text-red-500"
                     >
                       <LogOut size={14} /> {tr("common.logout", "Logout")}
                     </button>
