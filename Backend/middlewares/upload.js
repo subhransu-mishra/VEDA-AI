@@ -3,11 +3,34 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 
-const baseUploadDir = process.env.UPLOAD_BASE_DIR
-  ? path.resolve(process.env.UPLOAD_BASE_DIR)
-  : process.env.NODE_ENV === "production"
-    ? path.join(os.tmpdir(), "veda-uploads")
-    : path.resolve("uploads");
+const resolveWritableBaseUploadDir = () => {
+  const candidates = [];
+
+  if (process.env.UPLOAD_BASE_DIR) {
+    candidates.push(path.resolve(process.env.UPLOAD_BASE_DIR));
+  }
+
+  // Keep local dev files under project uploads when writable.
+  if (process.env.NODE_ENV !== "production") {
+    candidates.push(path.resolve("uploads"));
+  }
+
+  // Safe fallback for serverless/read-only runtimes.
+  candidates.push(path.join(os.tmpdir(), "veda-uploads"));
+
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      return dir;
+    } catch (_err) {
+      // Try next candidate until one succeeds.
+    }
+  }
+
+  throw new Error("Unable to initialize a writable upload directory");
+};
+
+const baseUploadDir = resolveWritableBaseUploadDir();
 
 const UPLOAD_DIR = path.join(baseUploadDir, "diagnosis");
 const REPORTS_DIR = path.join(baseUploadDir, "reports");
