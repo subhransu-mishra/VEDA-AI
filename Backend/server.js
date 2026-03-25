@@ -15,11 +15,31 @@ const PORT = process.env.PORT || 5000;
 
 const normalizeOrigin = (origin) => origin?.trim().replace(/\/$/, "");
 
+const globToRegex = (glob) => {
+  const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped.replace(/\*/g, ".*")}$`);
+};
+
 const configuredOrigins = [
   ...(process.env.CORS_ORIGINS || "").split(","),
   process.env.FRONTEND_URL || "",
 ]
   .map(normalizeOrigin)
+  .filter(Boolean);
+
+const configuredOriginGlobs = (process.env.CORS_ORIGIN_GLOBS || "")
+  .split(",")
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
+const configuredOriginRegexes = configuredOriginGlobs
+  .map((glob) => {
+    try {
+      return globToRegex(glob);
+    } catch (_error) {
+      return null;
+    }
+  })
   .filter(Boolean);
 
 const allowAllOrigins = configuredOrigins.includes("*");
@@ -32,7 +52,11 @@ const corsOptions = {
     }
 
     const normalizedOrigin = normalizeOrigin(origin);
-    const isAllowed = configuredOrigins.includes(normalizedOrigin);
+    const isExactAllowed = configuredOrigins.includes(normalizedOrigin);
+    const isPatternAllowed = configuredOriginRegexes.some((regex) =>
+      regex.test(normalizedOrigin),
+    );
+    const isAllowed = isExactAllowed || isPatternAllowed;
 
     if (isAllowed) {
       return callback(null, true);
@@ -94,6 +118,9 @@ const startServer = async () => {
         "Allowed CORS origins:",
         configuredOrigins.length ? configuredOrigins : ["*"],
       );
+      if (configuredOriginGlobs.length) {
+        console.log("Allowed CORS origin globs:", configuredOriginGlobs);
+      }
     });
   } catch (error) {
     console.error("Failed to start server:", error.message);
