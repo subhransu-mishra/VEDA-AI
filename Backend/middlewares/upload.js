@@ -1,9 +1,16 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import os from "os";
 
-const UPLOAD_DIR = "uploads/diagnosis";
-const REPORTS_DIR = "uploads/reports";
+const baseUploadDir = process.env.UPLOAD_BASE_DIR
+  ? path.resolve(process.env.UPLOAD_BASE_DIR)
+  : process.env.NODE_ENV === "production"
+    ? path.join(os.tmpdir(), "veda-uploads")
+    : path.resolve("uploads");
+
+const UPLOAD_DIR = path.join(baseUploadDir, "diagnosis");
+const REPORTS_DIR = path.join(baseUploadDir, "reports");
 
 // Ensure upload directories exist at startup
 [UPLOAD_DIR, REPORTS_DIR].forEach((dir) => {
