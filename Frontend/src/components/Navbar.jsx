@@ -71,7 +71,7 @@ function EmergencyCta({ label, onClick, mobile = false }) {
         animate={urgentPulse.animate}
         transition={urgentPulse.transition}
         onClick={onClick}
-        className="relative flex w-full items-center justify-between overflow-hidden rounded-[1.5rem] bg-[linear-gradient(135deg,#b9382f_0%,#d14b40_55%,#8f231c_100%)] px-4 py-4 text-left text-white"
+        className="relative flex w-full items-center justify-between overflow-hidden  bg-[linear-gradient(135deg,#b9382f_0%,#d14b40_55%,#8f231c_100%)] px-4 py-4 text-left text-white"
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(255,196,180,0.18),transparent_34%)]" />
         <div className="relative flex items-center gap-3">
@@ -110,7 +110,7 @@ function PrivateConcernCta({ label, onClick, mobile = false }) {
       <motion.button
         variants={linkVariants}
         onClick={onClick}
-        className="relative flex w-full items-center justify-between overflow-hidden rounded-[1.5rem] border border-[rgba(47,36,29,0.12)] bg-[linear-gradient(135deg,#2f241d_0%,#4b392d_58%,#735847_100%)] px-4 py-4 text-left text-[#f8f0e7] shadow-[0_20px_40px_-28px_rgba(47,36,29,0.9)]"
+        className="relative flex w-full items-center justify-between overflow-hidden  border border-[rgba(47,36,29,0.12)] bg-[linear-gradient(135deg,#2f241d_0%,#4b392d_58%,#735847_100%)] px-4 py-4 text-left text-[#f8f0e7] shadow-[0_20px_40px_-28px_rgba(47,36,29,0.9)]"
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_36%)]" />
         <div className="relative flex items-center gap-3">
@@ -186,6 +186,7 @@ export default function Navbar({
   const isDoctor = session?.role === "doctor";
   const isAdmin = session?.role === "admin";
   const isPatient = session?.role === "patient";
+  const isAnalysisPage = location.pathname === "/analysis";
   const doctorNeedsVerification =
     isDoctor && doctorVerificationStatus !== "verified";
   const showGetStarted = isLoggedIn && isPatient;
@@ -245,6 +246,11 @@ export default function Navbar({
     setMenuOpen(false);
     if (!isLoggedIn) return;
 
+    if (isPatient) {
+      navigate(isAnalysisPage ? "/dashboard/patient" : "/analysis");
+      return;
+    }
+
     if (isAdmin) {
       navigate("/admin/verification");
       return;
@@ -277,7 +283,11 @@ export default function Navbar({
     ? tr("common.adminPanel", "Admin Panel")
     : doctorNeedsVerification
       ? tr("common.verification", "Verification")
-      : tr("common.dashboard", "Dashboard");
+      : isPatient
+        ? isAnalysisPage
+          ? tr("common.dashboard", "Dashboard")
+          : tr("common.getStarted", "Begin Diagnosis")
+        : tr("common.dashboard", "Dashboard");
 
   return (
     <>

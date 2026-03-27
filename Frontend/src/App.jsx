@@ -239,6 +239,20 @@ function AppInner() {
     setSession(nextSession);
     setDoctorRefresh((v) => v + 1);
     clearModalFromUrl();
+
+    if (nextSession?.role === "patient") {
+      navigate("/analysis");
+      return;
+    }
+
+    if (nextSession?.role === "doctor") {
+      navigate("/doctor/verification");
+      return;
+    }
+
+    if (nextSession?.role === "admin") {
+      navigate("/admin/verification");
+    }
   };
 
   const onLogout = () => {
