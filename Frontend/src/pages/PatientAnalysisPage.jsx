@@ -40,6 +40,11 @@ const STATUS_STEPS = [
   "completed",
 ];
 
+const ANALYSIS_GUIDE_SEEN_PREFIX = "veda_analysis_guide_seen_v1:";
+
+const getAnalysisGuideStorageKey = (email) =>
+  `${ANALYSIS_GUIDE_SEEN_PREFIX}${String(email || "guest").toLowerCase()}`;
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const makeChatId = () =>
@@ -301,6 +306,8 @@ export default function PatientAnalysisPage({ session }) {
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceParsing, setVoiceParsing] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideStepIndex, setGuideStepIndex] = useState(0);
 
   const speechRecognitionRef = useRef(null);
 
@@ -310,6 +317,107 @@ export default function PatientAnalysisPage({ session }) {
   }, []);
 
   const speechSupported = Boolean(SpeechRecognitionCtor);
+
+  const manualSteps = useMemo(
+    () => [
+      {
+        title: tr("analysisPage.manual.step1.title", "Step 1: Fill basics"),
+        text: tr(
+          "analysisPage.manual.step1.text",
+          "Enter age, gender, your main symptom, and how long it has been happening. Keep it simple and clear.",
+        ),
+        points: [
+          tr(
+            "analysisPage.manual.step1.point1",
+            "Mention one main symptom first.",
+          ),
+          tr(
+            "analysisPage.manual.step1.point2",
+            "Use the severity slider honestly.",
+          ),
+          tr(
+            "analysisPage.manual.step1.point3",
+            "Add conditions or medicines if you have any.",
+          ),
+        ],
+      },
+      {
+        title: tr(
+          "analysisPage.manual.step2.title",
+          "Step 2: Use voice or upload reports",
+        ),
+        text: tr(
+          "analysisPage.manual.step2.text",
+          "You can tap Voice and speak naturally, or upload previous reports/photos to improve AI understanding.",
+        ),
+        points: [
+          tr(
+            "analysisPage.manual.step2.point1",
+            "Voice input is optional. You can edit before submit.",
+          ),
+          tr(
+            "analysisPage.manual.step2.point2",
+            "Upload only clear and relevant files.",
+          ),
+          tr(
+            "analysisPage.manual.step2.point3",
+            "Your final review matters more than speed.",
+          ),
+        ],
+      },
+      {
+        title: tr(
+          "analysisPage.manual.step3.title",
+          "Step 3: Generate and review AI summary",
+        ),
+        text: tr(
+          "analysisPage.manual.step3.text",
+          "Press Generate AI Diagnosis. Then read the summary, urgency, and report sections before taking action.",
+        ),
+        points: [
+          tr(
+            "analysisPage.manual.step3.point1",
+            "Use AI output as guidance, not final treatment.",
+          ),
+          tr(
+            "analysisPage.manual.step3.point2",
+            "Open View Reports for complete details.",
+          ),
+          tr(
+            "analysisPage.manual.step3.point3",
+            "Emergency badge means act quickly.",
+          ),
+        ],
+      },
+      {
+        title: tr(
+          "analysisPage.manual.step4.title",
+          "Step 4: Chat and connect doctor",
+        ),
+        text: tr(
+          "analysisPage.manual.step4.text",
+          "Ask follow-up questions in AI chat and use Connect to Doctor to create a consultation with the best match.",
+        ),
+        points: [
+          tr(
+            "analysisPage.manual.step4.point1",
+            "Share symptoms clearly in chat.",
+          ),
+          tr(
+            "analysisPage.manual.step4.point2",
+            "Choose a listed doctor or use auto-assign.",
+          ),
+          tr(
+            "analysisPage.manual.step4.point3",
+            "Track status chips until consultation is active.",
+          ),
+        ],
+      },
+    ],
+    [tr],
+  );
+
+  const currentManualStep = manualSteps[guideStepIndex] || manualSteps[0];
 
   const history = useMemo(() => {
     void refreshTick;
@@ -381,6 +489,15 @@ export default function PatientAnalysisPage({ session }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !session?.email) return;
+
+    const key = getAnalysisGuideStorageKey(session.email);
+    const seen = window.localStorage.getItem(key) === "1";
+    setGuideOpen(!seen);
+    setGuideStepIndex(0);
+  }, [session?.email]);
 
   useEffect(() => {
     const consultationId = activeCase?.doctorFlow?.consultationId;
@@ -1035,6 +1152,26 @@ export default function PatientAnalysisPage({ session }) {
     }
   };
 
+  const onDismissGuide = () => {
+    if (typeof window !== "undefined" && session?.email) {
+      const key = getAnalysisGuideStorageKey(session.email);
+      window.localStorage.setItem(key, "1");
+    }
+    setGuideOpen(false);
+  };
+
+  const onNextGuideStep = () => {
+    if (guideStepIndex >= manualSteps.length - 1) {
+      onDismissGuide();
+      return;
+    }
+    setGuideStepIndex((prev) => prev + 1);
+  };
+
+  const onPrevGuideStep = () => {
+    setGuideStepIndex((prev) => Math.max(prev - 1, 0));
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(145deg,#e8f4ff_0%,#f8fcff_48%,#edf8f5_100%)] text-slate-900">
       <div className="pointer-events-none absolute -left-24 top-20 h-72 w-72 rounded-full bg-sky-400/25 blur-[120px]" />
@@ -1104,6 +1241,18 @@ export default function PatientAnalysisPage({ session }) {
                   : connectingDoctor
                     ? tr("analysisPage.findingDoctors", "Finding doctors...")
                     : tr("analysisPage.connectDoctor", "Connect to Doctor")}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideStepIndex(0);
+                  setGuideOpen(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                <Sparkles size={14} />
+                {tr("analysisPage.howToUse", "How to Use")}
               </button>
             </div>
           </div>
@@ -1862,6 +2011,106 @@ export default function PatientAnalysisPage({ session }) {
           )}
         </Motion.div>
       </div>
+
+      {guideOpen ? (
+        <div className="fixed inset-0 z-[180] grid place-items-center bg-slate-900/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-3xl border border-white/70 bg-white/95 p-5 shadow-2xl sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-blue-700">
+                  {tr("analysisPage.manual.title", "Patient Guide")}
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-slate-900">
+                  {currentManualStep.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={onDismissGuide}
+                className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm leading-relaxed text-slate-700">
+              {currentManualStep.text}
+            </p>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                {tr("analysisPage.manual.quickChecklist", "Quick checklist")}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {currentManualStep.points.map((point) => (
+                  <li key={point} className="flex items-start gap-2">
+                    <CheckCircle2
+                      size={14}
+                      className="mt-0.5 text-emerald-600"
+                    />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                {manualSteps.map((step, index) => (
+                  <span
+                    key={step.title}
+                    className={`h-2.5 rounded-full transition-all ${
+                      index === guideStepIndex
+                        ? "w-6 bg-blue-600"
+                        : "w-2.5 bg-slate-300"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                {tr(
+                  "analysisPage.manual.stepLabel",
+                  "Step {{current}} of {{total}}",
+                  {
+                    current: guideStepIndex + 1,
+                    total: manualSteps.length,
+                  },
+                )}
+              </p>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={onDismissGuide}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                {tr("analysisPage.manual.skip", "Skip Guide")}
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onPrevGuideStep}
+                  disabled={guideStepIndex === 0}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                >
+                  {tr("analysisPage.manual.previous", "Previous")}
+                </button>
+                <button
+                  type="button"
+                  onClick={onNextGuideStep}
+                  className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  {guideStepIndex === manualSteps.length - 1
+                    ? tr("analysisPage.manual.start", "Start Diagnosis")
+                    : tr("analysisPage.manual.next", "Next")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {emergencyModalOpen && isEmergencyFromCase ? (
         <div className="fixed inset-0 z-170 grid place-items-center bg-slate-900/55 p-4 backdrop-blur-sm">
