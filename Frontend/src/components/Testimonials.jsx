@@ -1,10 +1,5 @@
 import { useMemo, useRef } from "react";
-import {
-  motion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from "framer-motion";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { Quote } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -12,34 +7,88 @@ const easeSmooth = [0.22, 1, 0.36, 1];
 
 const tagIcons = {
   clarity: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.35-4.35" />
     </svg>
   ),
   privacy: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   ),
   prepared: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M9 11l3 3L22 4" />
       <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
     </svg>
   ),
   trust: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
     </svg>
   ),
   comfort: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
     </svg>
   ),
   calm: (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="10" />
       <path d="M8 14s1.5 2 4 2 4-2 4-2" />
       <line x1="9" y1="9" x2="9.01" y2="9" />
@@ -96,7 +145,8 @@ function TestimonialCard({ item }) {
         background:
           "linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0.58) 100%)",
         border: "1px solid rgba(255,255,255,0.88)",
-        boxShadow: "0 10px 30px -16px rgba(47,120,217,0.12), 0 2px 8px rgba(20,40,60,0.04)",
+        boxShadow:
+          "0 10px 30px -16px rgba(47,120,217,0.12), 0 2px 8px rgba(20,40,60,0.04)",
         padding: "24px",
         display: "flex",
         flexDirection: "column",
@@ -231,7 +281,7 @@ export default function Testimonials() {
           defaultValue:
             "The guided flow feels much less intimidating than trying to explain everything from scratch.",
         }),
-        avatar: "/Timg1.png",
+        avatar: "/rimg1.jpg",
         initials: "RS",
         tag: t("testimonials.cards.t1.tag", { defaultValue: "Clarity" }),
         tagKey: "clarity",
@@ -241,12 +291,14 @@ export default function Testimonials() {
       {
         id: "t2",
         name: "Arjun Patel",
-        role: t("testimonials.cards.t2.role", { defaultValue: "Pilot feedback" }),
+        role: t("testimonials.cards.t2.role", {
+          defaultValue: "Pilot feedback",
+        }),
         quote: t("testimonials.cards.t2.quote", {
           defaultValue:
             "This feels safer for people who hesitate to talk openly about sensitive symptoms.",
         }),
-        avatar: "/Timg2.png",
+        avatar: "/rimg2.jpg",
         initials: "AP",
         tag: t("testimonials.cards.t2.tag", { defaultValue: "Privacy" }),
         tagKey: "privacy",
@@ -256,12 +308,14 @@ export default function Testimonials() {
       {
         id: "t3",
         name: "Meera Das",
-        role: t("testimonials.cards.t3.role", { defaultValue: "Prototype review" }),
+        role: t("testimonials.cards.t3.role", {
+          defaultValue: "Prototype review",
+        }),
         quote: t("testimonials.cards.t3.quote", {
           defaultValue:
             "The summary makes the next doctor conversation feel far more prepared.",
         }),
-        avatar: "/Timg3.png",
+        avatar: "/rimg3.jpg",
         initials: "MD",
         tag: t("testimonials.cards.t3.tag", { defaultValue: "Prepared" }),
         tagKey: "prepared",
@@ -271,12 +325,14 @@ export default function Testimonials() {
       {
         id: "t4",
         name: "Kabir Roy",
-        role: t("testimonials.cards.t4.role", { defaultValue: "Mentor reaction" }),
+        role: t("testimonials.cards.t4.role", {
+          defaultValue: "Mentor reaction",
+        }),
         quote: t("testimonials.cards.t4.quote", {
           defaultValue:
             "It reduces hesitation before care even begins, and that is what makes it different.",
         }),
-        avatar: "/Timg4.png",
+        avatar: "/rimg4.jpg",
         initials: "KR",
         tag: t("testimonials.cards.t4.tag", { defaultValue: "Trust" }),
         tagKey: "trust",
@@ -286,12 +342,14 @@ export default function Testimonials() {
       {
         id: "t5",
         name: "Sneha Paul",
-        role: t("testimonials.cards.t5.role", { defaultValue: "Demo feedback" }),
+        role: t("testimonials.cards.t5.role", {
+          defaultValue: "Demo feedback",
+        }),
         quote: t("testimonials.cards.t5.quote", {
           defaultValue:
             "A private-first experience can completely change how honestly patients respond.",
         }),
-        avatar: "/Timg1.png",
+        avatar: "/rimg5.jpg",
         initials: "SP",
         tag: t("testimonials.cards.t5.tag", { defaultValue: "Comfort" }),
         tagKey: "comfort",
@@ -301,12 +359,14 @@ export default function Testimonials() {
       {
         id: "t6",
         name: "Rahul Nair",
-        role: t("testimonials.cards.t6.role", { defaultValue: "Usability note" }),
+        role: t("testimonials.cards.t6.role", {
+          defaultValue: "Usability note",
+        }),
         quote: t("testimonials.cards.t6.quote", {
           defaultValue:
             "The product feels calm and structured instead of overwhelming or clinical.",
         }),
-        avatar: "/Timg2.png",
+        avatar: "/rimg6.jpg",
         initials: "RN",
         tag: t("testimonials.cards.t6.tag", { defaultValue: "Calm" }),
         tagKey: "calm",
@@ -314,13 +374,19 @@ export default function Testimonials() {
         bgAccent: "rgba(91,159,255,0.08)",
       },
     ],
-    [t]
+    [t],
   );
 
-  const topRow = useMemo(() => [...testimonials, ...testimonials], [testimonials]);
+  const topRow = useMemo(
+    () => [...testimonials, ...testimonials],
+    [testimonials],
+  );
   const bottomRow = useMemo(
-    () => [...testimonials.slice().reverse(), ...testimonials.slice().reverse()],
-    [testimonials]
+    () => [
+      ...testimonials.slice().reverse(),
+      ...testimonials.slice().reverse(),
+    ],
+    [testimonials],
   );
 
   const { scrollYProgress } = useScroll({
@@ -330,27 +396,28 @@ export default function Testimonials() {
 
   const introOpacity = useSpring(
     useTransform(scrollYProgress, [0, 0.22], [0, 1]),
-    { stiffness: 90, damping: 22, mass: 0.9 }
+    { stiffness: 90, damping: 22, mass: 0.9 },
   );
-  const introY = useSpring(
-    useTransform(scrollYProgress, [0, 0.22], [40, 0]),
-    { stiffness: 100, damping: 22, mass: 0.9 }
-  );
+  const introY = useSpring(useTransform(scrollYProgress, [0, 0.22], [40, 0]), {
+    stiffness: 100,
+    damping: 22,
+    mass: 0.9,
+  });
   const wallOpacity = useSpring(
     useTransform(scrollYProgress, [0.08, 0.32], [0, 1]),
-    { stiffness: 90, damping: 22, mass: 0.9 }
+    { stiffness: 90, damping: 22, mass: 0.9 },
   );
   const wallY = useSpring(
     useTransform(scrollYProgress, [0.08, 0.32], [56, 0]),
-    { stiffness: 90, damping: 22, mass: 0.95 }
+    { stiffness: 90, damping: 22, mass: 0.95 },
   );
   const topParallax = useSpring(
     useTransform(scrollYProgress, [0, 1], [0, -24]),
-    { stiffness: 80, damping: 24, mass: 1 }
+    { stiffness: 80, damping: 24, mass: 1 },
   );
   const bottomParallax = useSpring(
     useTransform(scrollYProgress, [0, 1], [0, 24]),
-    { stiffness: 80, damping: 24, mass: 1 }
+    { stiffness: 80, damping: 24, mass: 1 },
   );
 
   return (
@@ -519,7 +586,11 @@ export default function Testimonials() {
                   background: "linear-gradient(90deg, #2F78D9, transparent)",
                 }}
               />
-              <span className="section-label">{t("testimonials.sectionLabel", { defaultValue: "Testimonials" })}</span>
+              <span className="section-label">
+                {t("testimonials.sectionLabel", {
+                  defaultValue: "Testimonials",
+                })}
+              </span>
             </div>
 
             <div className="grid items-end gap-8 lg:grid-cols-[1fr_1fr] lg:gap-16">
@@ -528,16 +599,23 @@ export default function Testimonials() {
                   className="heading-display"
                   style={{ fontSize: "clamp(2.4rem, 4.5vw, 4rem)" }}
                 >
-                  {t("testimonials.titleLine1", { defaultValue: "Real trust starts" })}
+                  {t("testimonials.titleLine1", {
+                    defaultValue: "Real trust starts",
+                  })}
                   <br />
-                  {t("testimonials.titleLine2", { defaultValue: "before the consultation." })}
+                  {t("testimonials.titleLine2", {
+                    defaultValue: "before the consultation.",
+                  })}
                 </h2>
               </div>
 
               <div className="lg:pb-2">
                 <p
                   className="body-text"
-                  style={{ fontSize: "clamp(14px, 1.1vw, 16px)", maxWidth: 460 }}
+                  style={{
+                    fontSize: "clamp(14px, 1.1vw, 16px)",
+                    maxWidth: 460,
+                  }}
                 >
                   {t("testimonials.body", {
                     defaultValue:
@@ -547,9 +625,24 @@ export default function Testimonials() {
 
                 <div className="mt-7 flex flex-wrap gap-3">
                   {[
-                    { label: t("testimonials.stats.interviewed", { defaultValue: "Users interviewed" }), value: "40+" },
-                    { label: t("testimonials.stats.satisfaction", { defaultValue: "Avg. satisfaction" }), value: "4.8/5" },
-                    { label: t("testimonials.stats.pilotRounds", { defaultValue: "Pilot rounds" }), value: "3" },
+                    {
+                      label: t("testimonials.stats.interviewed", {
+                        defaultValue: "Users interviewed",
+                      }),
+                      value: "40+",
+                    },
+                    {
+                      label: t("testimonials.stats.satisfaction", {
+                        defaultValue: "Avg. satisfaction",
+                      }),
+                      value: "4.8/5",
+                    },
+                    {
+                      label: t("testimonials.stats.pilotRounds", {
+                        defaultValue: "Pilot rounds",
+                      }),
+                      value: "3",
+                    },
                   ].map((s) => (
                     <div
                       key={s.label}
@@ -607,7 +700,10 @@ export default function Testimonials() {
           style={{ opacity: wallOpacity, y: wallY }}
           className="relative"
         >
-          <motion.div style={{ y: topParallax }} className="testimonials-track-wrap fade-edges">
+          <motion.div
+            style={{ y: topParallax }}
+            className="testimonials-track-wrap fade-edges"
+          >
             <div className="testimonial-track track-scroll-right py-2">
               {topRow.map((item, index) => (
                 <TestimonialCard key={`${item.id}-top-${index}`} item={item} />
@@ -621,7 +717,10 @@ export default function Testimonials() {
           >
             <div className="testimonial-track track-scroll-left py-2">
               {bottomRow.map((item, index) => (
-                <TestimonialCard key={`${item.id}-bottom-${index}`} item={item} />
+                <TestimonialCard
+                  key={`${item.id}-bottom-${index}`}
+                  item={item}
+                />
               ))}
             </div>
           </motion.div>
@@ -643,8 +742,17 @@ export default function Testimonials() {
                 padding: "5px 12px",
               }}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2F78D9" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#2F78D9"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
               <span
                 style={{
@@ -654,7 +762,10 @@ export default function Testimonials() {
                   letterSpacing: "0.01em",
                 }}
               >
-                {t("testimonials.consentNote", { defaultValue: "All feedback is anonymised and shared with consent" })}
+                {t("testimonials.consentNote", {
+                  defaultValue:
+                    "All feedback is anonymised and shared with consent",
+                })}
               </span>
             </div>
           </div>
