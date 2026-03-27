@@ -47,8 +47,6 @@ function EmergencyHeroButton({ label, onClick }) {
 }
 
 export default function Hero({
-  onOpenLogin = () => {},
-  onOpenSignup = () => {},
   onGetStarted = () => {},
   onOpenEmergency = () => {},
   isLoggedIn = false,
@@ -132,34 +130,6 @@ export default function Hero({
             )}
           </motion.p>
 
-          {!isLoggedIn && (
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.95, delay: 0.22, ease: easeSmooth }}
-              className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:hidden"
-            >
-              <button
-                type="button"
-                onClick={onOpenLogin}
-                className="btn-secondary px-5 py-3 text-sm font-semibold"
-              >
-                {tr("hero.login", "Login")}
-              </button>
-              <button
-                type="button"
-                onClick={onOpenSignup}
-                className="btn-primary cursor-pointer px-5 py-3 text-sm font-semibold"
-              >
-                {tr("hero.signUp", "Sign up")}
-              </button>
-              <EmergencyHeroButton
-                label={tr("common.urgentHelp", "Need Help?")}
-                onClick={onOpenEmergency}
-              />
-            </motion.div>
-          )}
-
           {showMobileGetStarted && (
             <motion.div
               initial={{ opacity: 0, y: 14 }}
@@ -187,24 +157,7 @@ export default function Hero({
             transition={{ duration: 0.95, delay: 0.24, ease: easeSmooth }}
             className="mt-8 hidden items-center justify-center gap-3 lg:flex"
           >
-            {!isLoggedIn ? (
-              <>
-                <button
-                  type="button"
-                  onClick={onOpenLogin}
-                  className="btn-secondary px-6 py-3 text-sm font-semibold"
-                >
-                  {tr("hero.login", "Login")}
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenSignup}
-                  className="btn-primary cursor-pointer px-6 py-3 text-sm font-semibold"
-                >
-                  {tr("hero.signUp", "Sign up")}
-                </button>
-              </>
-            ) : showMobileGetStarted ? (
+            {showMobileGetStarted ? (
               <button
                 type="button"
                 onClick={onGetStarted}
