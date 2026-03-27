@@ -136,22 +136,13 @@ function ProtectedAdmin({ session, children }) {
   return children;
 }
 
-function LandingPage({
-  isLoggedIn,
-  session,
-  onOpenLogin,
-  onOpenSignup,
-  onGetStarted,
-  onOpenEmergency,
-}) {
+function LandingPage({ isLoggedIn, session, onGetStarted, onOpenEmergency }) {
   return (
     <>
       <section id="home">
         <Hero
           isLoggedIn={isLoggedIn}
           session={session}
-          onOpenLogin={onOpenLogin}
-          onOpenSignup={onOpenSignup}
           onGetStarted={onGetStarted}
           onOpenEmergency={onOpenEmergency}
         />
@@ -314,17 +305,21 @@ function AppInner() {
                 <LandingPage
                   isLoggedIn={isLoggedIn}
                   session={session}
-                  onOpenLogin={openLogin}
-                  onOpenSignup={openSignup}
                   onGetStarted={goToGetStarted}
                   onOpenEmergency={goToEmergency}
                 />
               }
             />
 
-            <Route path="/emergency" element={<EmergencyPage session={session} />} />
+            <Route
+              path="/emergency"
+              element={<EmergencyPage session={session} />}
+            />
             <Route path="/pricing" element={<PricingPage />} />
-            <Route path="/private-concern" element={<PrivateConcernPage session={session} />} />
+            <Route
+              path="/private-concern"
+              element={<PrivateConcernPage session={session} />}
+            />
 
             <Route
               path="/login"
@@ -456,4 +451,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-
