@@ -1,7 +1,7 @@
 // src/components/LoginModal.jsx
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { authApi } from "../api/authApi";
 import {
@@ -41,6 +41,17 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     const nextRole = isValidRole(roleFromUrl) ? roleFromUrl : "patient";
@@ -202,23 +213,26 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {open && (
         <>
-          <motion.div
+          <Motion.button
+            type="button"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
             onClick={closeModal}
-            className="fixed inset-0 z-210 bg-black/60 backdrop-blur-sm cursor-pointer"
+            className="fixed inset-0 z-5000 bg-black/55 backdrop-blur-[2px] cursor-pointer"
           />
 
-          <div className="fixed inset-0 z-220 flex items-center justify-center p-6 pointer-events-none">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className="relative flex w-full max-w-190 overflow-hidden rounded-3xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.45)] pointer-events-auto lg:h-125"
+          <div className="pointer-events-none fixed inset-0 z-5010 flex items-center justify-center p-4 sm:p-6">
+            <Motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 14, scale: 0.98 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              className="pointer-events-auto relative flex max-h-[92svh] w-full max-w-190 overflow-y-auto overflow-x-hidden rounded-3xl bg-white shadow-[0_40px_80px_-15px_rgba(0,0,0,0.45)] lg:h-125"
             >
               <div className="relative hidden w-[42%] bg-[#0a1128] lg:block">
                 <img
@@ -245,8 +259,9 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={closeModal}
-                    className="text-slate-300 hover:text-slate-900 transition-colors"
+                    className="touch-manipulation text-slate-300 hover:text-slate-900 transition-colors"
                   >
                     <svg
                       className="w-5 h-5"
@@ -278,10 +293,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                     >
                       {role}
                       {form.role === role && (
-                        <motion.div
-                          layoutId="tab"
-                          className="absolute bottom-0 left-0 h-0.5 w-full bg-slate-900"
-                        />
+                        <div className="absolute bottom-0 left-0 h-0.5 w-full bg-slate-900" />
                       )}
                     </button>
                   ))}
@@ -300,7 +312,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                       }
                       required
                       placeholder="Enter your email"
-                      className="w-full border-b border-slate-200 bg-transparent py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-900 placeholder:text-slate-400"
+                      className="touch-manipulation w-full border-b border-slate-200 bg-transparent py-2 text-base sm:text-sm text-slate-900 outline-none transition-colors focus:border-slate-900 placeholder:text-slate-400"
                     />
                   </div>
 
@@ -317,12 +329,12 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                         }
                         required
                         placeholder="••••••••"
-                        className="w-full border-b border-slate-200 bg-transparent py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-900 placeholder:text-slate-400"
+                        className="touch-manipulation w-full border-b border-slate-200 bg-transparent py-2 text-base sm:text-sm text-slate-900 outline-none transition-colors focus:border-slate-900 placeholder:text-slate-400"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900"
+                        className="touch-manipulation absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900"
                       >
                         {showPassword ? "Hide" : "Show"}
                       </button>
@@ -357,7 +369,7 @@ export default function LoginModal({ open, onClose, onLogin, onOpenSignup }) {
                   </p>
                 </footer>
               </div>
-            </motion.div>
+            </Motion.div>
           </div>
         </>
       )}

@@ -410,7 +410,7 @@ export default function DoctorDashboard({ session, onLogout }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-1004 w-[84vw] max-w-xs border-r border-white/60 bg-white/50 p-5 backdrop-blur-2xl transition-transform lg:relative lg:w-72 lg:max-w-none lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-1004 w-[84vw] max-w-xs border-r border-white/60 bg-white/50 p-5 backdrop-blur-2xl transform-gpu transition-transform duration-200 ease-out will-change-transform lg:relative lg:w-72 lg:max-w-none lg:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -469,7 +469,9 @@ export default function DoctorDashboard({ session, onLogout }) {
         <header className="relative z-40 flex h-16 items-center justify-between border-b border-white/50 bg-white/45 px-4 backdrop-blur-2xl sm:px-6">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsSidebarOpen(true)}
+              onClick={() => setIsSidebarOpen((v) => !v)}
+              aria-expanded={isSidebarOpen}
+              aria-label="Navigation"
               className="rounded-xl p-2 text-slate-600 hover:bg-white/70 lg:hidden"
             >
               <Menu size={18} />

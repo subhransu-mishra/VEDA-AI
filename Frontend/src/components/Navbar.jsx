@@ -19,14 +19,17 @@ import { useTranslation } from "react-i18next";
 const easeSmooth = [0.4, 0, 0.2, 1];
 
 const drawerVariants = {
-  closed: { x: "100%", transition: { duration: 0.5, ease: [0.7, 0, 0.3, 1] } },
+  closed: {
+    x: "100%",
+    transition: { duration: 0.24, ease: [0.4, 0, 1, 1] },
+  },
   open: {
     x: 0,
     transition: {
-      duration: 0.7,
+      duration: 0.28,
       ease: easeSmooth,
-      staggerChildren: 0.08,
-      delayChildren: 0.1,
+      staggerChildren: 0.03,
+      delayChildren: 0.02,
     },
   },
 };
@@ -294,7 +297,7 @@ export default function Navbar({
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="pointer-events-none fixed inset-x-0 top-0 z-[999] px-4 py-4 sm:px-6 sm:py-5"
+        className="pointer-events-none fixed inset-x-0 top-0 z-3200 px-4 py-4 sm:px-6 sm:py-5"
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 lg:gap-5">
           <div className="flex min-w-0 flex-1 justify-start lg:flex-[0_0_auto]">
@@ -406,16 +409,23 @@ export default function Navbar({
 
           <div className="pointer-events-auto flex flex-1 justify-end lg:hidden">
             <button
-              onClick={() => setMenuOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav-drawer"
+              aria-label={
+                menuOpen
+                  ? tr("common.close", "Close")
+                  : tr("common.navigation", "Navigation")
+              }
+              className="touch-manipulation flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-sm"
             >
-              <Menu size={20} />
+              {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
       </motion.header>
 
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {menuOpen && (
           <>
             <motion.div
@@ -423,14 +433,15 @@ export default function Navbar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMenuOpen(false)}
-              className="fixed inset-0 z-[1000] bg-black/30 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-3180 bg-black/30 lg:hidden"
             />
             <motion.aside
+              id="mobile-nav-drawer"
               variants={drawerVariants}
               initial="closed"
               animate="open"
               exit="closed"
-              className="fixed right-0 top-0 z-[1001] flex h-full w-[84%] max-w-[370px] flex-col bg-white lg:hidden"
+              className="fixed right-0 top-0 z-3190 flex h-full w-[84%] max-w-92.5 flex-col bg-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.45)] will-change-transform lg:hidden"
             >
               <div className="flex items-center justify-between border-b border-slate-100 p-7">
                 <span className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
@@ -438,7 +449,7 @@ export default function Navbar({
                 </span>
                 <button
                   onClick={() => setMenuOpen(false)}
-                  className="text-slate-400"
+                  className="touch-manipulation text-slate-400"
                 >
                   <X size={24} />
                 </button>
@@ -572,7 +583,7 @@ export default function Navbar({
 
       <AnimatePresence>
         {showLogoutConfirm && (
-          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-3300 flex items-center justify-center p-6">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
