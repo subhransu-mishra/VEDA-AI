@@ -145,6 +145,12 @@ VedaAI addresses this with:
 - AI-based analysis and structuring.
 - Specialist normalization and matching logic.
 
+### Upcoming features
+
+- 1-to-1 doctor consultations using WebRTC for real-time audio/video sessions.
+- Emergency case SMS notifications sent directly to the patient's configured emergency contact.
+- OpenFDA verification layer for prescribed medicines, so doctor-recommended medications are validated before being shown to patients.
+
 ---
 
 ## 6. Tech Stack
@@ -518,4 +524,3 @@ Until a license is added, treat the project as all-rights-reserved by default.
 <img width="1900" height="866" alt="Screenshot 2026-03-22 205747" src="https://github.com/user-attachments/assets/dfee7a24-689b-4de5-b11a-6943d3fdcc40" />
 <img width="1901" height="867" alt="Screenshot 2026-03-22 205722" src="https://github.com/user-attachments/assets/c50733ab-b438-4671-a69f-753cfdd223cb" />
 <img width="1903" height="870" alt="Screenshot 2026-03-22 205656" src="https://github.com/user-attachments/assets/ed414e1c-2e93-415c-a2a4-bec703859ea6" />
-
