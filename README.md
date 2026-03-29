@@ -180,7 +180,7 @@ VedaAI addresses this with:
 - Password hashing (`bcryptjs`)
 - Uploads (`multer`)
 - Cloudinary
-- Google Generative AI SDK
+- Gemini SDK , Claude sonnet 4.6 , OpenAI 03-mini model
 - OCR (`tesseract.js`)
 - PDF extraction (`pdf-parse`)
 
@@ -417,6 +417,7 @@ VITE_API_BASE_URL=http://localhost:5000/api
 - npm
 - MongoDB (local or Atlas)
 - Gemini API key
+- Claude API Key
 - Cloudinary account (for doctor verification files)
 
 ### 11.1 Backend
