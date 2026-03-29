@@ -6,28 +6,6 @@ It helps patients describe symptoms privately, supports report uploads (PDF/imag
 
 ---
 
-## Table of Contents
-
-- [1. Project Objective](#1-project-objective)
-- [2. Problem and Solution](#2-problem-and-solution)
-- [3. High-Level Architecture](#3-high-level-architecture)
-- [4. Core Workflows](#4-core-workflows)
-- [5. Features](#5-features)
-- [6. Tech Stack](#6-tech-stack)
-- [7. Repository Structure](#7-repository-structure)
-- [8. Backend API Reference](#8-backend-api-reference)
-- [9. Data Models](#9-data-models)
-- [10. Environment Variables](#10-environment-variables)
-- [11. Local Development Setup](#11-local-development-setup)
-- [12. Security and Access Control](#12-security-and-access-control)
-- [13. Validation and Error Behavior](#13-validation-and-error-behavior)
-- [14. Known Gaps and Current Limitations](#14-known-gaps-and-current-limitations)
-- [15. Suggested Production Improvements](#15-suggested-production-improvements)
-- [16. Contributing](#16-contributing)
-- [17. License](#17-license)
-
----
-
 ## 1. Project Objective
 
 VedaAI is designed to reduce friction between symptom onset and medical guidance.
