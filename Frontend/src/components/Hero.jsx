@@ -145,6 +145,7 @@ export default function Hero({
                 {tr("common.getStarted", "Begin Diagnosis")}
               </button>
               <EmergencyHeroButton
+                className="cursor-pointer"
                 label={tr("common.urgentHelp", "Need Help?")}
                 onClick={onOpenEmergency}
               />
