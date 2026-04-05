@@ -2013,8 +2013,8 @@ export default function PatientAnalysisPage({ session }) {
       </div>
 
       {guideOpen ? (
-        <div className="fixed inset-0 z-[180] grid place-items-center bg-slate-900/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/70 bg-white/95 p-5 shadow-2xl sm:p-6">
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-3xl border border-white/70 bg-white/95 p-5 shadow-2xl sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.15em] text-blue-700">
@@ -2113,8 +2113,8 @@ export default function PatientAnalysisPage({ session }) {
       ) : null}
 
       {emergencyModalOpen && isEmergencyFromCase ? (
-        <div className="fixed inset-0 z-170 grid place-items-center bg-slate-900/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-rose-200 bg-white p-5 shadow-2xl sm:p-6">
+        <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md max-h-[95vh] overflow-y-auto rounded-3xl border border-rose-200 bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700">
                 <AlertTriangle size={18} />
@@ -2168,7 +2168,7 @@ export default function PatientAnalysisPage({ session }) {
       ) : null}
 
       {reportOpen && activeCase?.ai?.report ? (
-        <div className="fixed inset-0 z-160 grid place-items-center bg-slate-900/45 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm">
           <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
               <div>
@@ -2339,7 +2339,7 @@ export default function PatientAnalysisPage({ session }) {
       ) : null}
 
       {doctorReportOpen && doctorStructuredReport ? (
-        <div className="fixed inset-0 z-160 grid place-items-center bg-slate-900/45 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm">
           <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/60 bg-white/95 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
               <div>
